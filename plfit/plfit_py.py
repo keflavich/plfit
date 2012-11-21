@@ -6,6 +6,9 @@
 # difficult to derive and must be acquired iteratively.
 
 """
+Pure-Python version of plfit.py
+===============================
+
 plfit.py - a python power-law fitter based on code by Aaron Clauset
 http://www.santafe.edu/~aaronc/powerlaws/
 http://arxiv.org/abs/0706.1062 "Power-law distributions in empirical data" 
@@ -33,7 +36,7 @@ class plfit:
     in empirical data" SIAM Review, 51, 661-703 (2009). (arXiv:0706.1062)
     http://arxiv.org/abs/0706.1062
 
-    The output "alpha" is defined such that p(x) ~ (x/xmin)^-alpha
+    The output "alpha" is defined such that :math:`p(x) ~ (x/xmin)^{-alpha}`
     """
 
     def __init__(self,x,**kwargs):
@@ -220,18 +223,20 @@ def test_fitter(xmin=1.0, alpha=2.5, niter=500, npts=1000, invcdf=plexp_inv,
 
     Examples
     ========
+    Example (fig 3.4b in Clauset et al.)::
 
-    Example (fig 3.4b in Clauset et al.) ::
         xminin=[0.25,0.5,0.75,1,1.5,2,5,10,50,100]
         xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=xminin,niter=1,npts=50000)
         loglog(xminin,xmarr.squeeze(),'x')
 
-    Example 2 ::
+    Example 2::
+
         xminin=[0.25,0.5,0.75,1,1.5,2,5,10,50,100]
         xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=xminin,niter=10,npts=1000)
         loglog(xminin,xmarr.mean(axis=0),'x')
 
-    Example 3 ::
+    Example 3::
+
         xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=1.0,niter=1000,npts=1000)
         hist(xmarr.squeeze());
         # Test results:
@@ -239,7 +244,8 @@ def test_fitter(xmin=1.0, alpha=2.5, niter=500, npts=1000, invcdf=plexp_inv,
         # mean(af) = 2.51 median(af) = 2.49  std(af)=0.14
         # biased distribution; far from correct value of xmin but close to correct alpha
     
-    Example 4 ::
+    Example 4::
+
         xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=1.0,niter=1000,npts=1000,invcdf=pl_inv)
         print("mean(xmarr): %0.2f median(xmarr): %0.2f std(xmarr): %0.2f" % (mean(xmarr),median(xmarr),std(xmarr)))
         print("mean(af): %0.2f median(af): %0.2f std(af): %0.2f" % (mean(af),median(af),std(af)))

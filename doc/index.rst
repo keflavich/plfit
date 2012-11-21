@@ -9,22 +9,6 @@ plfit Package
     :undoc-members:
     :show-inheritance:
 
-:mod:`cython_plfit` Module
---------------------------
-
-.. automodule:: plfit.cython_plfit
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`fortran_plfit` Module
----------------------------
-
-.. automodule:: plfit.fortran_plfit
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 :mod:`plfit` Module
 -------------------
 
@@ -35,6 +19,7 @@ plfit Package
 
 :mod:`plfit_py` Module
 ----------------------
+Duplicate of the above plfit module, but without using numpy (or matplotlib, therefore no plots)
 
 .. automodule:: plfit.plfit_py
     :members:
