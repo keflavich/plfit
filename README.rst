@@ -1,14 +1,16 @@
-= Power-law Distribution Fitting =
+Power-law Distribution Fitting
+==============================
 This is a python implementation of a power-law distribution fitter.  The code
 here was originally hosted on
 [agpy](http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki) but was moved
 and re-packaged to make setup.py cleaner.  
 
 Aaron Clauset et al. address the issue of fitting power-laws to distributions
-on [http://www.santafe.edu/~aaronc/powerlaws/ this website] and in their paper
-[http://arxiv.org/abs/0706.1062 Power-law distributions in empirical data].  I
-have created a python implementation of their code because I didn't have matlab
-or R and wanted to do some power-law fitting. 
+on [this website](http://www.santafe.edu/~aaronc/powerlaws/) and in their paper
+[Power-law distributions in empirical
+data](http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki).  I have
+created a python implementation of their code because I didn't have matlab or R
+and wanted to do some power-law fitting. 
 
 Power-laws are very commonly used in astronomy and are typically used to
 describe the initial mass function (IMF), the core mass function (CMF), and
@@ -18,20 +20,17 @@ distinguish powerlaws from log-normal and other distributions.  But, to this
 end, I've included the testing mechanism to test for consistency with a power
 law as described in the above paper.
 
-Only the continuous case is implemented in this case; my research interests do not (yet) require the discrete distribution.  
- * *2/3/2012* I've implemented the discrete case.
- * [http://code.google.com/p/agpy/source/browse/#svn/trunk/plfit]
- * [[http://agpy.googlecode.com/svn/trunk/doc/html/plfit.html API documentation ]]
-
 The python internal documentation is complete.  A brief description of relevant functions is included here for convenience:
 
 plfit is implemented as a class.  This means that you import plfit, and declare an instance of the plfit class:
-import plfit
-X = rand(1000)
-myplfit = plfit.plfit(X)
+
+    import plfit
+    X = rand(1000)
+    myplfit = plfit.plfit(X)
+
 The results of the fit are printed to the screen (if desired) and are stored as part of the object.
 
-alpha`_` and kstest`_` are functions used internally to determine the ks-statistic and alpha values as a function of xmin.
+`alpha_` and `kstest_` are functions used internally to determine the ks-statistic and alpha values as a function of xmin.
 
 There are 3 predefined plotting functions:
   * `alphavsks` plots alpha on the y-axis vs. the ks statistic value on the x-axis with the 'best-fit' alpha value plotted with error bars.   These plots are a useful way to determine if other values of xmin are similarly good fits.
