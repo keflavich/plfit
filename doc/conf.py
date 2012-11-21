@@ -29,6 +29,13 @@ except ImportError:
 # sys.path.insert(0, os.path.abspath('../'))
 # sys.path.append('/Users/adam/repos/plfit/')
 # sys.path.append('/Users/adam/repos/plfit/plfit/')
+rootpath = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, rootpath)
+#import numpydoc
+#sys.path.insert(0, os.path.split(numpydoc.__file__)[0])
+sys.path.insert(0, rootpath+"/doc/sphinxext/")
+sys.path.append(os.path.abspath('sphinxext'))
+sys.path.append(os.path.abspath('.'))
 
 # -- General configuration -----------------------------------------------------
 
