@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /sfiforms/
+Disallow: /events/workshops/
