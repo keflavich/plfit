@@ -17,6 +17,7 @@ build_src.have_pyrex = True
 from Cython.Distutils import build_ext
 import Cython
 import numpy
+import sys
 import os
 
 print "To create cplfit.so (for importing), call command: "
@@ -35,13 +36,13 @@ dirs.extend(Cython.__path__)
 dirs.append('.')
 
 ext_cplfit = Extension(
-		"cplfit", 
-		["cplfit.pyx"], 
+		"plfit/cplfit", 
+		["plfit/cplfit.pyx"], 
 		include_dirs = dirs, 
 		extra_compile_args=['-O3'])
 
-#ext_fplfit = numpyExtension(name="fplfit",
-#                    sources=["fplfit.f"])
+ext_fplfit = numpyExtension(name="plfit/fplfit",
+                    sources=["plfit/fplfit.f"])
 
 if __name__=="__main__":
 
@@ -49,8 +50,11 @@ if __name__=="__main__":
     # therefore, run this command separately
     # gfortran = OK.  g77, g95 NOT ok
     # also, this is kind of a ridiculous hack...
-    if any([x in sys.argv for x in ['build','install']:
-        fortran_compile_command = "cd plfit && f2py -c fplfit.f -m fplfit --fcompiler=gfortran && cd .."
+    if any([x in sys.argv for x in ['build','install']]):
+        fortran_compile_command = "f2py -c {0} -m {1} --fcompiler=gfortran".format(
+                ext_fplfit.sources[0],
+                ext_fplfit.name)
+        print fortran_compile_command
         os.system(fortran_compile_command)
     # do this first so it gets copied (in principle...)
 
