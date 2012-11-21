@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# agpy documentation build configuration file, created by
+# plfit documentation build configuration file, created by
 # sphinx-quickstart on Wed Dec 21 22:31:14 2011.
 #
 # This file is execfile()d with the current directory set to its containing dir.
@@ -94,16 +94,16 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'agpy'
-copyright = u'2011, Adam Ginsburg'
+project = u'plfit'
+copyright = u'2012, Adam Ginsburg'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-from agpy import __version__ as version
+#from agpy import __version__ as version
 # The short X.Y version.
-version = version
+version = '1.0'
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -233,7 +233,7 @@ html_show_sourcelink = True
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'agpydoc'
+htmlhelp_basename = 'plfitdoc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -247,7 +247,7 @@ htmlhelp_basename = 'agpydoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'agpy.tex', u'agpy Documentation',
+  ('index', 'plfit.tex', u'plfit Documentation',
    u'Adam Ginsburg', 'manual'),
 ]
 
@@ -280,7 +280,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'agpy', u'agpy Documentation',
+    ('index', 'plfit', u'plfit Documentation',
      [u'Adam Ginsburg'], 1)
 ]
 
@@ -288,7 +288,7 @@ man_pages = [
 # -- Options for Epub output ---------------------------------------------------
 
 # Bibliographic Dublin Core info.
-epub_title = u'agpy'
+epub_title = u'plfit'
 epub_author = u'Adam Ginsburg'
 epub_publisher = u'Adam Ginsburg'
 epub_copyright = u'2011, Adam Ginsburg'
