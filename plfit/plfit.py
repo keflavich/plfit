@@ -653,6 +653,8 @@ def test_fitter(xmin=1.0,alpha=2.5,niter=500,npts=1000,invcdf=plexp_inv):
     """
     Tests the power-law fitter 
 
+    Examples
+    ========
     Example (fig 3.4b in Clauset et al.)::
 
         xminin=[0.25,0.5,0.75,1,1.5,2,5,10,50,100]
@@ -665,7 +667,7 @@ def test_fitter(xmin=1.0,alpha=2.5,niter=500,npts=1000,invcdf=plexp_inv):
         xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=xminin,niter=10,npts=1000)
         loglog(xminin,xmarr.mean(axis=0),'x')
 
-    Example 3:
+    Example 3::
 
         xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=1.0,niter=1000,npts=1000)
         hist(xmarr.squeeze());
@@ -674,7 +676,7 @@ def test_fitter(xmin=1.0,alpha=2.5,niter=500,npts=1000,invcdf=plexp_inv):
         # mean(af) = 2.51 median(af) = 2.49  std(af)=0.14
         # biased distribution; far from correct value of xmin but close to correct alpha
     
-    Example 4:
+    Example 4::
 
         xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=1.0,niter=1000,npts=1000,invcdf=pl_inv)
         print("mean(xmarr): %0.2f median(xmarr): %0.2f std(xmarr): %0.2f" % (mean(xmarr),median(xmarr),std(xmarr)))

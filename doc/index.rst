@@ -46,11 +46,3 @@ plfit Package
     ----------------------
     .. automodule:: plfit.plfit_v1
 
-:mod:`setup` Module
--------------------
-
-.. automodule:: plfit.setup
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
