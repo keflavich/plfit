@@ -16,16 +16,40 @@ import sys, os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('../'))
-sys.path.append('/Users/adam/repos/plfit/')
-sys.path.append('/Users/adam/repos/plfit/plfit/')
+# sys.path.insert(0, os.path.abspath('../'))
+# sys.path.append('/Users/adam/repos/plfit/')
+# sys.path.append('/Users/adam/repos/plfit/plfit/')
 
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #needs_sphinx = '1.0'
 
-from astropy.sphinx.conf import *
+# read the docs mocks
+
+class Mock(object):
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __call__(self, *args, **kwargs):
+        return Mock()
+
+    @classmethod
+    def __getattr__(cls, name):
+        if name in ('__file__', '__path__'):
+            return '/dev/null'
+        elif name[0] == name[0].upper():
+            return type(name, (), {})
+        else:
+            return Mock()
+
+
+MOCK_MODULES = ['matplotlib', 'matplotlib.pyplot', 'matplotlib.pylab', 'matplotlib.figure',
+    'matplotlib.widgets', 'matplotlib.cbook', 'pyfits', 'scipy', 'astropy', 'pylab']
+for mod_name in MOCK_MODULES:
+    sys.modules[mod_name] = Mock()
+
+#from astropy.sphinx.conf import *
 #del html_style # I don't want theirs because I don't have it
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
@@ -51,6 +75,7 @@ try:
     import matplotlib.sphinxext.plot_directive
     extensions += [matplotlib.sphinxext.plot_directive.__name__]
 except ImportError:
+    import warnings
     warnings.warn(
         "matplotlib's plot_directive could not be imported. " +
         "Inline plots will not be included in the output")
