@@ -4,6 +4,7 @@
 # OLD from numpy.distutils.core import setup
 # OLD from numpy.distutils.core import Extension
 from distutils.core import setup,Extension
+import distutils.util
 #from scipy_distutils.core import Extension as scipyExtension
 #from scipy_distutils.core import setup as scipysetup
 from numpy.distutils.core import Extension as numpyExtension
@@ -19,6 +20,7 @@ import Cython
 import numpy
 import sys
 import os
+import shutil
 
 print "To create cplfit.so (for importing), call command: "
 print "python setup.py build_ext --inplace"
@@ -41,8 +43,8 @@ ext_cplfit = Extension(
 		include_dirs = dirs, 
 		extra_compile_args=['-O3'])
 
-ext_fplfit = numpyExtension(name="plfit/fplfit",
-                    sources=["plfit/fplfit.f"])
+#ext_fplfit = numpyExtension(name="fplfit",
+#                    sources=["fplfit.f"])
 
 if __name__=="__main__":
 
@@ -51,14 +53,20 @@ if __name__=="__main__":
     # gfortran = OK.  g77, g95 NOT ok
     # also, this is kind of a ridiculous hack...
     if any([x in sys.argv for x in ['build','install']]):
-        fortran_compile_command = "f2py -c {0} -m {1} --fcompiler=gfortran".format(
-                ext_fplfit.sources[0],
-                ext_fplfit.name)
-        print fortran_compile_command
+        fortran_compile_command = "cd plfit && f2py -c fplfit.f -m fplfit --fcompiler=gfortran && cd .."
         os.system(fortran_compile_command)
     # do this first so it gets copied (in principle...)
+    # in practice, see hack cont'd 
+    if os.path.exists('plfit/fplfit.so'):
+        build_dir = 'build/lib.{0}-{1}.{2}/plfit/'.format(
+                distutils.util.get_platform(),
+                sys.version_info[0],
+                sys.version_info[1])
+        if not os.path.exists(build_dir):
+            os.makedirs(build_dir)
+        shutil.copy2('plfit/fplfit.so',build_dir+"/fplfit.so")
 
-    setup(
+    S = setup(
         name = "plfit",
         version = "1.0",
         description = "Python implementation of Aaron Clauset's power-law distribution fitter",
@@ -78,6 +86,7 @@ if __name__=="__main__":
     #numpysetup(name = 'fplfit',
     #      ext_modules = [ext_fplfit]
     #      )
+
 
 
 

@@ -1,5 +1,7 @@
-import cplfit
 import plfit
+from plfit import cplfit
+from plfit import plfit
+from plfit import fplfit
 import time
 from pylab import *
 #from numpy.random import rand
