@@ -5,6 +5,7 @@ here was originally hosted on `agpy
 <http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki>`_ but was
 moved and re-packaged to make setup.py cleaner.  
 
+`API Documentation <http://plfit.readthedocs.org/>`_
 
 Installation
 ------------
