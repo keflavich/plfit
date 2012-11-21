@@ -1,0 +1,958 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>plfit.plfit &mdash; agpy 0.1.2 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/extra.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.1.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../_static/astropy_logo.ico"/>
+    <link rel="top" title="agpy 0.1.2 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="header-wrapper">
+      <div class="header">
+        <div class="headertitle"><a
+          href="../../index.html">agpy 0.1.2 documentation</a></div>
+        <div class="rel">
+          <a href="../../np-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for plfit.plfit</h1><div class="highlight"><pre>
+<span class="c"># -*- coding: latin-1 -*-</span>
+<span class="c"># </span>
+<span class="c"># intended to implement a power-law fitting routine as specified in.....</span>
+<span class="c"># http://www.santafe.edu/~aaronc/powerlaws/</span>
+<span class="c">#</span>
+<span class="c"># The MLE for the power-law alpha is very easy to derive given knowledge</span>
+<span class="c"># of the lowest value at which a power law holds, but that point is </span>
+<span class="c"># difficult to derive and must be acquired iteratively.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">plfit.py - a python power-law fitter based on code by Aaron Clauset</span>
+<span class="sd">http://www.santafe.edu/~aaronc/powerlaws/</span>
+<span class="sd">http://arxiv.org/abs/0706.1062 &quot;Power-law distributions in empirical data&quot; </span>
+<span class="sd">Requires pylab (matplotlib), which requires numpy</span>
+
+<span class="sd">example use:</span>
+<span class="sd">from plfit import plfit</span>
+
+<span class="sd">MyPL = plfit(mydata)</span>
+<span class="sd">MyPL.plotpdf(log=True)</span>
+
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> 
+<span class="c"># this may break downstream items numpy.seterr(all=&#39;ignore&#39;) # likely to cause failures otherwise</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">pylab</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">fplfit</span>
+    <span class="n">fortranOK</span> <span class="o">=</span> <span class="bp">True</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="n">fortranOK</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">cplfit</span>
+    <span class="n">cyOK</span> <span class="o">=</span> <span class="bp">True</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="n">cyOK</span> <span class="o">=</span> <span class="bp">False</span>
+
+<span class="kn">import</span> <span class="nn">numpy.random</span> <span class="kn">as</span> <span class="nn">npr</span>
+<span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="n">log</span><span class="p">,</span><span class="n">log10</span><span class="p">,</span><span class="nb">sum</span><span class="p">,</span><span class="n">argmin</span><span class="p">,</span><span class="n">argmax</span><span class="p">,</span><span class="n">exp</span><span class="p">,</span><span class="nb">min</span><span class="p">,</span><span class="nb">max</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">scipy.stats</span>
+    <span class="n">scipyOK</span> <span class="o">=</span> <span class="bp">True</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">scipyOK</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="k">print</span> <span class="s">&quot;scipy didn&#39;t import.  Can&#39;t compute certain basic statistics.&quot;</span>
+
+<div class="viewcode-block" id="plfit"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit">[docs]</a><span class="k">class</span> <span class="nc">plfit</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A Python implementation of the Matlab code http://www.santafe.edu/~aaronc/powerlaws/plfit.m</span>
+<span class="sd">    from http://www.santafe.edu/~aaronc/powerlaws/</span>
+
+<span class="sd">    See A. Clauset, C.R. Shalizi, and M.E.J. Newman, &quot;Power-law distributions</span>
+<span class="sd">    in empirical data&quot; SIAM Review, 51, 661-703 (2009). (arXiv:0706.1062)</span>
+<span class="sd">    http://arxiv.org/abs/0706.1062</span>
+
+<span class="sd">    The output &quot;alpha&quot; is defined such that p(x) ~ (x/xmin)^-alpha</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">x</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initializes and fits the power law.  Can pass &quot;quiet&quot; to turn off </span>
+<span class="sd">        output (except for warnings; &quot;silent&quot; turns off warnings)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c"># make sure x is an array, otherwise the next step fails </span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">x</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;Removed </span><span class="si">%i</span><span class="s"> negative points&quot;</span> <span class="o">%</span> <span class="p">((</span><span class="n">x</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">x</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">x</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plfit</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="plfit.alpha_"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.alpha_">[docs]</a>    <span class="k">def</span> <span class="nf">alpha_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">alpha</span><span class="p">(</span><span class="n">xmin</span><span class="p">,</span><span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            given a sorted data set and a minimum, returns power law MLE fit</span>
+<span class="sd">            data is passed as a keyword parameter so that it can be vectorized</span>
+
+<span class="sd">            if there is only one element, return alpha=0</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">gexmin</span> <span class="o">=</span> <span class="n">x</span><span class="o">&gt;=</span><span class="n">xmin</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">gexmin</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">return</span> <span class="mi">0</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">gexmin</span><span class="p">]</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">/</span> <span class="nb">sum</span><span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">x</span><span class="o">/</span><span class="n">xmin</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">a</span>
+        <span class="k">return</span> <span class="n">alpha</span>
+</div>
+<div class="viewcode-block" id="plfit.kstest_"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.kstest_">[docs]</a>    <span class="k">def</span> <span class="nf">kstest_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">kstest</span><span class="p">(</span><span class="n">xmin</span><span class="p">,</span><span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            given a sorted data set and a minimum, returns power law MLE ks-test w/data</span>
+<span class="sd">            data is passed as a keyword parameter so that it can be vectorized</span>
+
+<span class="sd">            The returned value is the &quot;D&quot; parameter in the ks test...</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">x</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">]</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">inf</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">/</span> <span class="nb">sum</span><span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">x</span><span class="o">/</span><span class="n">xmin</span><span class="p">))</span>
+            <span class="n">cx</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="s">&#39;float&#39;</span><span class="p">)</span><span class="o">/</span><span class="nb">float</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+            <span class="n">cf</span> <span class="o">=</span> <span class="mi">1</span><span class="o">-</span><span class="p">(</span><span class="n">xmin</span><span class="o">/</span><span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="n">a</span>
+            <span class="n">ks</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">cf</span><span class="o">-</span><span class="n">cx</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">ks</span>
+        <span class="k">return</span> <span class="n">kstest</span>
+    
+</div>
+<div class="viewcode-block" id="plfit.plfit"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.plfit">[docs]</a>    <span class="k">def</span> <span class="nf">plfit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nosmall</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">finite</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">quiet</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+            <span class="n">usefortran</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">usecy</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">xmin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> 
+            <span class="n">discrete</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">discrete_approx</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">discrete_n_alpha</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A Python implementation of the Matlab code http://www.santafe.edu/~aaronc/powerlaws/plfit.m</span>
+<span class="sd">        from http://www.santafe.edu/~aaronc/powerlaws/</span>
+
+<span class="sd">        See A. Clauset, C.R. Shalizi, and M.E.J. Newman, &quot;Power-law distributions</span>
+<span class="sd">        in empirical data&quot; SIAM Review, 51, 661-703 (2009). (arXiv:0706.1062)</span>
+<span class="sd">        http://arxiv.org/abs/0706.1062</span>
+
+<span class="sd">        There are 3 implementations of xmin estimation.  The fortran version is fastest, the C (cython)</span>
+<span class="sd">        version is ~10% slower, and the python version is ~3x slower than the fortran version.</span>
+<span class="sd">        Also, the cython code suffers ~2% numerical error relative to the fortran and python for unknown</span>
+<span class="sd">        reasons.</span>
+
+<span class="sd">        There is also a discrete version implemented in python - it is different from the continous version!</span>
+<span class="sd">        *discrete* [ bool | None ]</span>
+<span class="sd">            If *discrete* is None, the code will try to determine whether the</span>
+<span class="sd">            data set is discrete or continous based on the uniqueness of the</span>
+<span class="sd">            data.  If *discrete* is True or False, the distcrete or continuous</span>
+<span class="sd">            fitter will be used, respectively.</span>
+
+<span class="sd">        *xmin* [ float / int ]</span>
+<span class="sd">            If you specify xmin, the fitter will only determine alpha assuming</span>
+<span class="sd">            the given xmin; the rest of the code (and most of the complexity)</span>
+<span class="sd">            is determining an estimate for xmin and alpha.</span>
+
+<span class="sd">        *nosmall* [ bool (True) ]</span>
+<span class="sd">            When on, the code rejects low s/n points</span>
+
+<span class="sd">        *finite* [ bool (False) ]</span>
+<span class="sd">            There is a &#39;finite-size bias&#39; to the estimator.  The &quot;alpha&quot; the code measures</span>
+<span class="sd">            is &quot;alpha-hat&quot; s.t. Î±Í = (nÎ±-1)/(n-1), or Î± = (1 + Î±Í (n-1)) / n</span>
+
+<span class="sd">        *quiet* [ bool (False) ]</span>
+<span class="sd">            If False, delivers messages about what fitter is used and the fit results</span>
+
+<span class="sd">        *verbose* [ bool (False) ] </span>
+<span class="sd">            Deliver descriptive messages about the fit parameters (only if *quiet*==False)</span>
+
+<span class="sd">        *silent* [ bool (False) ] </span>
+<span class="sd">            If True, will print NO messages</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">xmins</span><span class="p">,</span><span class="n">argxmins</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">z</span><span class="p">,</span><span class="n">return_index</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span><span class="c">#[:-1]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nunique</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xmins</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nunique</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">and</span> <span class="n">discrete</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;Using CONTINUOUS fitter&quot;</span>
+            <span class="n">discrete</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nunique</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="ow">and</span> <span class="n">discrete</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;Using DISCRETE fitter&quot;</span>
+            <span class="n">discrete</span> <span class="o">=</span> <span class="bp">True</span>
+
+        <span class="n">t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">xmin</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">discrete</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">discrete_best_alpha</span><span class="p">(</span> <span class="n">approximate</span><span class="o">=</span><span class="n">discrete_approx</span><span class="p">,</span>
+                        <span class="n">n_alpha</span><span class="o">=</span><span class="n">discrete_n_alpha</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span> <span class="n">finite</span><span class="o">=</span><span class="n">finite</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span>
+            <span class="k">elif</span> <span class="n">usefortran</span> <span class="ow">and</span> <span class="n">fortranOK</span><span class="p">:</span>
+                <span class="n">dat</span><span class="p">,</span><span class="n">av</span> <span class="o">=</span> <span class="n">fplfit</span><span class="o">.</span><span class="n">plfit</span><span class="p">(</span><span class="n">z</span><span class="p">,</span><span class="nb">int</span><span class="p">(</span><span class="n">nosmall</span><span class="p">))</span>
+                <span class="n">goodvals</span><span class="o">=</span><span class="n">dat</span><span class="o">&gt;</span><span class="mi">0</span>
+                <span class="n">sigma</span> <span class="o">=</span> <span class="p">((</span><span class="n">av</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)</span><span class="o">-</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">))))[</span><span class="n">argxmins</span><span class="p">]</span>
+                <span class="n">dat</span> <span class="o">=</span> <span class="n">dat</span><span class="p">[</span><span class="n">goodvals</span><span class="p">]</span>
+                <span class="n">av</span> <span class="o">=</span> <span class="n">av</span><span class="p">[</span><span class="n">goodvals</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">nosmall</span><span class="p">:</span>
+                    <span class="c"># data, av a;ready treated for this.  sigma, xmins not</span>
+                    <span class="n">nmax</span> <span class="o">=</span> <span class="n">argmin</span><span class="p">(</span><span class="n">sigma</span><span class="o">&lt;</span><span class="mf">0.1</span><span class="p">)</span>
+                    <span class="n">xmins</span> <span class="o">=</span> <span class="n">xmins</span><span class="p">[:</span><span class="n">nmax</span><span class="p">]</span>
+                    <span class="n">sigma</span> <span class="o">=</span> <span class="n">sigma</span><span class="p">[:</span><span class="n">nmax</span><span class="p">]</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">quiet</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;FORTRAN plfit executed in </span><span class="si">%f</span><span class="s"> seconds&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">usecy</span> <span class="ow">and</span> <span class="n">cyOK</span><span class="p">:</span>
+                <span class="n">dat</span><span class="p">,</span><span class="n">av</span> <span class="o">=</span> <span class="n">cplfit</span><span class="o">.</span><span class="n">plfit_loop</span><span class="p">(</span><span class="n">z</span><span class="p">,</span><span class="n">nosmall</span><span class="o">=</span><span class="n">nosmall</span><span class="p">,</span><span class="n">zunique</span><span class="o">=</span><span class="n">xmins</span><span class="p">,</span><span class="n">argunique</span><span class="o">=</span><span class="n">argxmins</span><span class="p">)</span>
+                <span class="n">goodvals</span><span class="o">=</span><span class="n">dat</span><span class="o">&gt;</span><span class="mi">0</span>
+                <span class="n">sigma</span> <span class="o">=</span> <span class="p">(</span><span class="n">av</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)</span><span class="o">-</span><span class="n">argxmins</span><span class="p">)</span>
+                <span class="n">dat</span> <span class="o">=</span> <span class="n">dat</span><span class="p">[</span><span class="n">goodvals</span><span class="p">]</span>
+                <span class="n">av</span> <span class="o">=</span> <span class="n">av</span><span class="p">[</span><span class="n">goodvals</span><span class="p">]</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">quiet</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;CYTHON plfit executed in </span><span class="si">%f</span><span class="s"> seconds&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">av</span>  <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span> <span class="nb">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha_</span><span class="p">(</span><span class="n">z</span><span class="p">),</span><span class="n">xmins</span><span class="p">)</span> <span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="s">&#39;float&#39;</span><span class="p">)</span>
+                <span class="n">dat</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span> <span class="nb">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kstest_</span><span class="p">(</span><span class="n">z</span><span class="p">),</span><span class="n">xmins</span><span class="p">),</span><span class="n">dtype</span><span class="o">=</span><span class="s">&#39;float&#39;</span><span class="p">)</span>
+                <span class="n">sigma</span> <span class="o">=</span> <span class="p">(</span><span class="n">av</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)</span><span class="o">-</span><span class="n">argxmins</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">nosmall</span><span class="p">:</span>
+                    <span class="c"># test to make sure the number of data points is high enough</span>
+                    <span class="c"># to provide a reasonable s/n on the computed alpha</span>
+                    <span class="n">goodvals</span> <span class="o">=</span> <span class="n">sigma</span><span class="o">&lt;</span><span class="mf">0.1</span>
+                    <span class="n">nmax</span> <span class="o">=</span> <span class="n">argmin</span><span class="p">(</span><span class="n">goodvals</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">nmax</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">dat</span> <span class="o">=</span> <span class="n">dat</span><span class="p">[:</span><span class="n">nmax</span><span class="p">]</span>
+                        <span class="n">xmins</span> <span class="o">=</span> <span class="n">xmins</span><span class="p">[:</span><span class="n">nmax</span><span class="p">]</span>
+                        <span class="n">av</span> <span class="o">=</span> <span class="n">av</span><span class="p">[:</span><span class="n">nmax</span><span class="p">]</span>
+                        <span class="n">sigma</span> <span class="o">=</span> <span class="n">sigma</span><span class="p">[:</span><span class="n">nmax</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span> 
+                            <span class="k">print</span> <span class="s">&quot;Not enough data left after flagging - using all positive data.&quot;</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">quiet</span><span class="p">:</span> 
+                <span class="k">print</span> <span class="s">&quot;PYTHON plfit executed in </span><span class="si">%f</span><span class="s"> seconds&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">t</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">usefortran</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;fortran fplfit did not load&quot;</span>
+                <span class="k">if</span> <span class="n">usecy</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;cython cplfit did not load&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_av</span> <span class="o">=</span> <span class="n">av</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_xmin_kstest</span> <span class="o">=</span> <span class="n">dat</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">=</span> <span class="n">sigma</span>
+            <span class="n">xmin</span>  <span class="o">=</span> <span class="n">xmins</span><span class="p">[</span><span class="n">argmin</span><span class="p">(</span><span class="n">dat</span><span class="p">)]</span> 
+        <span class="n">z</span>     <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">z</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">]</span>
+        <span class="n">n</span>     <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">n</span> <span class="o">/</span> <span class="nb">sum</span><span class="p">(</span> <span class="n">log</span><span class="p">(</span><span class="n">z</span><span class="o">/</span><span class="n">xmin</span><span class="p">)</span> <span class="p">)</span>
+        <span class="k">if</span> <span class="n">finite</span><span class="p">:</span>
+            <span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span><span class="o">*</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="mf">1.</span><span class="p">)</span><span class="o">/</span><span class="n">n</span><span class="o">+</span><span class="mf">1.</span><span class="o">/</span><span class="n">n</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">50</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">finite</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&#39;(PLFIT) Warning: finite-size bias may be present. n=</span><span class="si">%i</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">n</span>
+        <span class="n">ks</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span> <span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="o">/</span><span class="nb">float</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="p">(</span><span class="n">xmin</span><span class="o">/</span><span class="n">z</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="n">alpha</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span> <span class="p">))</span>
+        <span class="c"># Parallels Eqn 3.5 in Clauset et al 2009, but zeta(alpha, xmin) = (alpha-1)/xmin.  Really is Eqn B3 in paper.</span>
+        <span class="n">L</span> <span class="o">=</span> <span class="n">n</span><span class="o">*</span><span class="n">log</span><span class="p">((</span><span class="n">alpha</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">xmin</span><span class="p">)</span> <span class="o">-</span> <span class="n">alpha</span><span class="o">*</span><span class="nb">sum</span><span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">z</span><span class="o">/</span><span class="n">xmin</span><span class="p">))</span>
+        <span class="c">#requires another map... Larr = arange(len(unique(x))) * log((av-1)/unique(x)) - av*sum</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_likelihood</span> <span class="o">=</span> <span class="n">L</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span> <span class="o">=</span> <span class="n">xmin</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_xmins</span> <span class="o">=</span> <span class="n">xmins</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="o">=</span> <span class="n">alpha</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_alphaerr</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ks</span> <span class="o">=</span> <span class="n">ks</span>  <span class="c"># this ks statistic may not have the same value as min(dat) because of unique()</span>
+        <span class="k">if</span> <span class="n">scipyOK</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ks_prob</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">kstwobign</span><span class="o">.</span><span class="n">sf</span><span class="p">(</span><span class="n">ks</span><span class="o">*</span><span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ngtx</span> <span class="o">=</span> <span class="n">n</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">silent</span><span class="p">:</span>
+                <span class="k">print</span> <span class="s">&quot;Failure: only 1 point kept.  Probably not a power-law distribution.&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_alphaerr</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_likelihood</span> <span class="o">=</span> <span class="n">L</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ks</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ks_prob</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span> <span class="o">=</span> <span class="n">xmin</span>
+            <span class="k">return</span> <span class="n">xmin</span><span class="p">,</span><span class="mi">0</span>
+        <span class="k">if</span> <span class="n">numpy</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">L</span><span class="p">)</span> <span class="ow">or</span> <span class="n">numpy</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">xmin</span><span class="p">)</span> <span class="ow">or</span> <span class="n">numpy</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;plfit failed; returned a nan&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">quiet</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;The lowest value included in the power-law fit, &quot;</span><span class="p">,</span>
+            <span class="k">print</span> <span class="s">&quot;xmin: </span><span class="si">%g</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">xmin</span><span class="p">,</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">The number of values above xmin, &quot;</span><span class="p">,</span>
+            <span class="k">print</span> <span class="s">&quot;n(&gt;xmin): </span><span class="si">%i</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">n</span><span class="p">,</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">The derived power-law alpha (p(x)~x^-alpha) with MLE-derived error, &quot;</span><span class="p">,</span>
+            <span class="k">print</span> <span class="s">&quot;alpha: </span><span class="si">%g</span><span class="s"> +/- </span><span class="si">%g</span><span class="s">  &quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">alpha</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">_alphaerr</span><span class="p">),</span> 
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">The log of the Likelihood (the maximized parameter; you minimized the negative log likelihood), &quot;</span><span class="p">,</span>
+            <span class="k">print</span> <span class="s">&quot;Log-Likelihood: </span><span class="si">%g</span><span class="s">  &quot;</span> <span class="o">%</span> <span class="n">L</span><span class="p">,</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">The KS-test statistic between the best-fit power-law and the data, &quot;</span><span class="p">,</span>
+            <span class="k">print</span> <span class="s">&quot;ks: </span><span class="si">%g</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ks</span><span class="p">),</span>
+            <span class="k">if</span> <span class="n">scipyOK</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot; occurs with probability  &quot;</span><span class="p">,</span>
+                <span class="k">print</span> <span class="s">&quot;p(ks): </span><span class="si">%g</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ks_prob</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">print</span>
+
+        <span class="k">return</span> <span class="n">xmin</span><span class="p">,</span><span class="n">alpha</span>
+
+</div>
+<div class="viewcode-block" id="plfit.discrete_best_alpha"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.discrete_best_alpha">[docs]</a>    <span class="k">def</span> <span class="nf">discrete_best_alpha</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpharangemults</span><span class="o">=</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span><span class="mf">1.1</span><span class="p">),</span> <span class="n">n_alpha</span><span class="o">=</span><span class="mi">201</span><span class="p">,</span> <span class="n">approximate</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">finite</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Use the maximum L to determine the most likely value of alpha</span>
+
+<span class="sd">        *alpharangemults* [ 2-tuple ]</span>
+<span class="sd">            Pair of values indicating multiplicative factors above and below the</span>
+<span class="sd">            approximate alpha from the MLE alpha to use when determining the</span>
+<span class="sd">            &quot;exact&quot; alpha (by directly maximizing the likelihood function)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_xmins</span> <span class="o">=</span> <span class="n">xmins</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">approximate</span><span class="p">:</span>
+            <span class="n">alpha_of_xmin</span> <span class="o">=</span> <span class="p">[</span> <span class="n">discrete_alpha_mle</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">xmin</span><span class="p">)</span> <span class="k">for</span> <span class="n">xmin</span> <span class="ow">in</span> <span class="n">xmins</span> <span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">alpha_approx</span> <span class="o">=</span> <span class="p">[</span> <span class="n">discrete_alpha_mle</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">xmin</span><span class="p">)</span> <span class="k">for</span> <span class="n">xmin</span> <span class="ow">in</span> <span class="n">xmins</span> <span class="p">]</span>
+            <span class="n">alpharanges</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.9</span><span class="o">*</span><span class="n">a</span><span class="p">,</span><span class="mf">1.1</span><span class="o">*</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">alpha_approx</span><span class="p">]</span>
+            <span class="n">alpha_of_xmin</span> <span class="o">=</span> <span class="p">[</span> <span class="n">most_likely_alpha</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">xmin</span><span class="p">,</span><span class="n">alpharange</span><span class="o">=</span><span class="n">ar</span><span class="p">,</span><span class="n">n_alpha</span><span class="o">=</span><span class="n">n_alpha</span><span class="p">)</span> <span class="k">for</span> <span class="n">xmin</span><span class="p">,</span><span class="n">ar</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xmins</span><span class="p">,</span><span class="n">alpharanges</span><span class="p">)</span> <span class="p">]</span>
+        <span class="n">ksvalues</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">([</span> <span class="n">discrete_ksD</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span> <span class="k">for</span> <span class="n">xmin</span><span class="p">,</span><span class="n">alpha</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xmins</span><span class="p">,</span><span class="n">alpha_of_xmin</span><span class="p">)</span> <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_av</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">alpha_of_xmin</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_xmin_kstest</span> <span class="o">=</span> <span class="n">ksvalues</span>
+        
+        <span class="n">ksvalues</span><span class="p">[</span><span class="n">numpy</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">ksvalues</span><span class="p">)]</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">inf</span>
+
+        <span class="n">best_index</span> <span class="o">=</span> <span class="n">argmin</span><span class="p">(</span><span class="n">ksvalues</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">=</span> <span class="n">best_alpha</span> <span class="o">=</span> <span class="n">alpha_of_xmin</span><span class="p">[</span><span class="n">best_index</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span> <span class="o">=</span> <span class="n">best_xmin</span> <span class="o">=</span> <span class="n">xmins</span><span class="p">[</span><span class="n">best_index</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ks</span> <span class="o">=</span> <span class="n">best_ks</span> <span class="o">=</span> <span class="n">ksvalues</span><span class="p">[</span><span class="n">best_index</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_likelihood</span> <span class="o">=</span> <span class="n">best_likelihood</span> <span class="o">=</span> <span class="n">discrete_likelihood</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">best_xmin</span><span class="p">,</span> <span class="n">best_alpha</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">finite</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="o">*</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="mf">1.</span><span class="p">)</span><span class="o">/</span><span class="n">n</span><span class="o">+</span><span class="mf">1.</span><span class="o">/</span><span class="n">n</span>
+
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&quot;alpha = </span><span class="si">%f</span><span class="s">   xmin = </span><span class="si">%f</span><span class="s">   ksD = </span><span class="si">%f</span><span class="s">   L = </span><span class="si">%f</span><span class="s">   (n&lt;x) = </span><span class="si">%i</span><span class="s">  (n&gt;=x) = </span><span class="si">%i</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">best_alpha</span><span class="p">,</span> <span class="n">best_xmin</span><span class="p">,</span> <span class="n">best_ks</span><span class="p">,</span> <span class="n">best_likelihood</span><span class="p">,</span>
+                    <span class="p">(</span><span class="n">data</span><span class="o">&lt;</span><span class="n">best_xmin</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="p">(</span><span class="n">data</span><span class="o">&gt;=</span><span class="n">best_xmin</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ngtx</span> <span class="o">=</span> <span class="n">n</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">&gt;=</span><span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_alphaerr</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span><span class="o">/</span><span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scipyOK</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ks_prob</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">kstwobign</span><span class="o">.</span><span class="n">sf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ks</span><span class="o">*</span><span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">best_alpha</span><span class="p">,</span><span class="n">best_xmin</span><span class="p">,</span><span class="n">best_ks</span><span class="p">,</span><span class="n">best_likelihood</span>
+</div>
+<div class="viewcode-block" id="plfit.xminvsks"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.xminvsks">[docs]</a>    <span class="k">def</span> <span class="nf">xminvsks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot xmin versus the ks value for derived alpha.  This plot can be used</span>
+<span class="sd">        as a diagnostic of whether you have derived the &#39;best&#39; fit: if there are </span>
+<span class="sd">        multiple local minima, your data set may be well suited to a broken </span>
+<span class="sd">        powerlaw or a different function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="n">pylab</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_xmins</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">_xmin_kstest</span><span class="p">,</span><span class="s">&#39;.&#39;</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">_ks</span><span class="p">,</span><span class="s">&#39;s&#39;</span><span class="p">)</span>
+        <span class="c">#pylab.errorbar([self._ks],self._alpha,yerr=self._alphaerr,fmt=&#39;+&#39;)</span>
+
+        <span class="n">ax</span><span class="o">=</span><span class="n">pylab</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s">&quot;KS statistic&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s">&quot;min(x)&quot;</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">ax</span>
+</div>
+<div class="viewcode-block" id="plfit.alphavsks"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.alphavsks">[docs]</a>    <span class="k">def</span> <span class="nf">alphavsks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">autozoom</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot alpha versus the ks value for derived alpha.  This plot can be used</span>
+<span class="sd">        as a diagnostic of whether you have derived the &#39;best&#39; fit: if there are </span>
+<span class="sd">        multiple local minima, your data set may be well suited to a broken </span>
+<span class="sd">        powerlaw or a different function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="n">pylab</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">_av</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">_xmin_kstest</span><span class="p">,</span><span class="s">&#39;.&#39;</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">,[</span><span class="bp">self</span><span class="o">.</span><span class="n">_ks</span><span class="p">],</span><span class="n">xerr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_alphaerr</span><span class="p">,</span><span class="n">fmt</span><span class="o">=</span><span class="s">&#39;+&#39;</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="o">=</span><span class="n">pylab</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">autozoom</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="mf">0.8</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ks</span><span class="p">),</span><span class="mi">3</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ks</span><span class="p">))</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">)</span><span class="o">-</span><span class="mi">5</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_alphaerr</span><span class="p">,(</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span><span class="p">)</span><span class="o">+</span><span class="mi">5</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_alphaerr</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s">&quot;KS statistic&quot;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s">r&#39;$\alpha$&#39;</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">ax</span>
+</div>
+<div class="viewcode-block" id="plfit.plotcdf"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.plotcdf">[docs]</a>    <span class="k">def</span> <span class="nf">plotcdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">xmin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">pointcolor</span><span class="o">=</span><span class="s">&#39;k&#39;</span><span class="p">,</span>
+            <span class="n">pointmarker</span><span class="o">=</span><span class="s">&#39;+&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plots CDF and powerlaw</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span> <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">if</span> <span class="n">xmin</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span> <span class="n">xmin</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span>
+        <span class="k">if</span> <span class="n">alpha</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span> <span class="n">alpha</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span>
+
+        <span class="n">x</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">n</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">xcdf</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="s">&#39;float&#39;</span><span class="p">)</span><span class="o">/</span><span class="nb">float</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+
+        <span class="n">q</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">x</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">]</span>
+        <span class="n">fcdf</span> <span class="o">=</span> <span class="p">(</span><span class="n">q</span><span class="o">/</span><span class="n">xmin</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">alpha</span><span class="p">)</span>
+        <span class="n">nc</span> <span class="o">=</span> <span class="n">xcdf</span><span class="p">[</span><span class="n">argmax</span><span class="p">(</span><span class="n">x</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">)]</span>
+        <span class="n">fcdf_norm</span> <span class="o">=</span> <span class="n">nc</span><span class="o">*</span><span class="n">fcdf</span>
+
+        <span class="n">D_location</span> <span class="o">=</span> <span class="n">argmax</span><span class="p">(</span><span class="n">xcdf</span><span class="p">[</span><span class="n">x</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">]</span><span class="o">-</span><span class="n">fcdf_norm</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">vlines</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="n">D_location</span><span class="p">],</span><span class="n">xcdf</span><span class="p">[</span><span class="n">x</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">][</span><span class="n">D_location</span><span class="p">],</span><span class="n">fcdf_norm</span><span class="p">[</span><span class="n">D_location</span><span class="p">],</span><span class="n">color</span><span class="o">=</span><span class="s">&#39;m&#39;</span><span class="p">,</span><span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c">#plotx = pylab.linspace(q.min(),q.max(),1000)</span>
+        <span class="c">#ploty = (plotx/xmin)**(1-alpha) * nc</span>
+
+        <span class="n">pylab</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">xcdf</span><span class="p">,</span><span class="n">marker</span><span class="o">=</span><span class="n">pointmarker</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="n">pointcolor</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="c">#pylab.loglog(plotx,ploty,&#39;r&#39;,**kwargs)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="n">fcdf_norm</span><span class="p">,</span><span class="s">&#39;r&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="plfit.plotpdf"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.plotpdf">[docs]</a>    <span class="k">def</span> <span class="nf">plotpdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">x</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span><span class="n">xmin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span><span class="n">alpha</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span><span class="n">nbins</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span><span class="n">dolog</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span><span class="n">dnds</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+            <span class="n">drawstyle</span><span class="o">=</span><span class="s">&#39;steps-post&#39;</span><span class="p">,</span> <span class="n">histcolor</span><span class="o">=</span><span class="s">&#39;k&#39;</span><span class="p">,</span> <span class="n">plcolor</span><span class="o">=</span><span class="s">&#39;r&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plots PDF and powerlaw.</span>
+
+<span class="sd">        kwargs is passed to pylab.hist and pylab.plot</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+        <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">xmin</span><span class="p">):</span> <span class="n">xmin</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span>
+        <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span> <span class="n">alpha</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span>
+
+        <span class="n">x</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">n</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">pylab</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s">&#39;log&#39;</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s">&#39;log&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dnds</span><span class="p">:</span>
+            <span class="n">hb</span> <span class="o">=</span> <span class="n">pylab</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">bins</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">log10</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span><span class="n">log10</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span><span class="n">nbins</span><span class="p">))</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">hb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">hb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">db</span> <span class="o">=</span> <span class="n">hb</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span><span class="o">-</span><span class="n">hb</span><span class="p">[</span><span class="mi">1</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">h</span><span class="o">/</span><span class="n">db</span>
+            <span class="n">pylab</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">b</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="n">h</span><span class="p">,</span><span class="n">drawstyle</span><span class="o">=</span><span class="n">drawstyle</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="n">histcolor</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="c">#alpha -= 1</span>
+        <span class="k">elif</span> <span class="n">dolog</span><span class="p">:</span>
+            <span class="n">hb</span> <span class="o">=</span> <span class="n">pylab</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">bins</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">log10</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span><span class="n">log10</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span><span class="n">nbins</span><span class="p">),</span><span class="n">log</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span><span class="n">fill</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span><span class="n">edgecolor</span><span class="o">=</span><span class="n">histcolor</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">alpha</span> <span class="o">-=</span> <span class="mi">1</span>
+            <span class="n">h</span><span class="p">,</span><span class="n">b</span><span class="o">=</span><span class="n">hb</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">hb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">hb</span> <span class="o">=</span> <span class="n">pylab</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">bins</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">linspace</span><span class="p">((</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">)),(</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span><span class="n">nbins</span><span class="p">),</span><span class="n">fill</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span><span class="n">edgecolor</span><span class="o">=</span><span class="n">histcolor</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">h</span><span class="p">,</span><span class="n">b</span><span class="o">=</span><span class="n">hb</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">hb</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c"># plotting points are at the center of each bin</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">+</span><span class="n">b</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">/</span><span class="mf">2.0</span>
+
+        <span class="n">q</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">x</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">]</span>
+        <span class="n">px</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">xmin</span> <span class="o">*</span> <span class="p">(</span><span class="n">q</span><span class="o">/</span><span class="n">xmin</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="n">alpha</span><span class="p">)</span>
+
+        <span class="c"># Normalize by the median ratio between the histogram and the power-law</span>
+        <span class="c"># The normalization is semi-arbitrary; an average is probably just as valid</span>
+        <span class="n">plotloc</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span><span class="o">&gt;</span><span class="n">xmin</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">h</span><span class="o">&gt;</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">median</span><span class="p">(</span> <span class="n">h</span><span class="p">[</span><span class="n">plotloc</span><span class="p">]</span> <span class="o">/</span> <span class="p">((</span><span class="n">alpha</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">xmin</span> <span class="o">*</span> <span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="n">plotloc</span><span class="p">]</span><span class="o">/</span><span class="n">xmin</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="n">alpha</span><span class="p">))</span>  <span class="p">)</span>
+        <span class="n">px</span> <span class="o">=</span> <span class="n">px</span><span class="o">*</span><span class="n">norm</span>
+
+        <span class="n">plotx</span> <span class="o">=</span> <span class="n">pylab</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span><span class="n">q</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span><span class="mi">1000</span><span class="p">)</span>
+        <span class="n">ploty</span> <span class="o">=</span> <span class="p">(</span><span class="n">alpha</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">xmin</span> <span class="o">*</span> <span class="p">(</span><span class="n">plotx</span><span class="o">/</span><span class="n">xmin</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">norm</span>
+
+        <span class="c">#pylab.loglog(q,px,&#39;r&#39;,**kwargs)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">plotx</span><span class="p">,</span><span class="n">ploty</span><span class="p">,</span><span class="n">color</span><span class="o">=</span><span class="n">plcolor</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">axlims</span> <span class="o">=</span> <span class="n">pylab</span><span class="o">.</span><span class="n">axis</span><span class="p">()</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">vlines</span><span class="p">(</span><span class="n">xmin</span><span class="p">,</span><span class="n">axlims</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="nb">max</span><span class="p">(</span><span class="n">px</span><span class="p">),</span><span class="n">colors</span><span class="o">=</span><span class="n">plcolor</span><span class="p">,</span><span class="n">linestyle</span><span class="o">=</span><span class="s">&#39;dashed&#39;</span><span class="p">)</span>
+
+        <span class="n">pylab</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+</div>
+<div class="viewcode-block" id="plfit.plotppf"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.plotppf">[docs]</a>    <span class="k">def</span> <span class="nf">plotppf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">x</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span><span class="n">xmin</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span><span class="n">alpha</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span><span class="n">dolog</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plots the power-law-predicted value on the Y-axis against the real</span>
+<span class="sd">        values along the X-axis.  Can be used as a diagnostic of the fit </span>
+<span class="sd">        quality.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">xmin</span><span class="p">):</span> <span class="n">xmin</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span>
+        <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span> <span class="n">alpha</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span>
+        <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="n">x</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">&gt;</span><span class="n">xmin</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span> <span class="n">x</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">x</span><span class="o">&gt;</span><span class="n">xmin</span><span class="p">])</span>
+
+        <span class="c"># N = M^(-alpha+1)</span>
+        <span class="c"># M = N^(1/(-alpha+1))</span>
+        
+        <span class="n">m0</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">+</span><span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">xmodel</span> <span class="o">=</span> <span class="n">m0</span> <span class="o">*</span> <span class="n">N</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">alpha</span><span class="p">))</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">N</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">alpha</span><span class="p">))</span>
+        
+        <span class="k">if</span> <span class="n">dolog</span><span class="p">:</span>
+            <span class="n">pylab</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">xmodel</span><span class="p">,</span><span class="s">&#39;.&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">pylab</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="n">pylab</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pylab</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">xmodel</span><span class="p">,</span><span class="s">&#39;.&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">)],[</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">)],</span><span class="s">&#39;k--&#39;</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s">&quot;Real Value&quot;</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s">&quot;Power-Law Model Value&quot;</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="plfit.test_pl"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.test_pl">[docs]</a>    <span class="k">def</span> <span class="nf">test_pl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">niter</span><span class="o">=</span><span class="mf">1e3</span><span class="p">,</span> <span class="n">print_timing</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Monte-Carlo test to determine whether distribution is consistent with a power law</span>
+
+<span class="sd">        Runs through niter iterations of a sample size identical to the input sample size.</span>
+
+<span class="sd">        Will randomly select values from the data &lt; xmin.  The number of values selected will</span>
+<span class="sd">        be chosen from a uniform random distribution with p(&lt;xmin) = n(&lt;xmin)/n.</span>
+
+<span class="sd">        Once the sample is created, it is fit using above methods, then the best fit is used to</span>
+<span class="sd">        compute a Kolmogorov-Smirnov statistic.  The KS stat distribution is compared to the </span>
+<span class="sd">        KS value for the fit to the actual data, and p = fraction of random ks values greater</span>
+<span class="sd">        than the data ks value is computed.  If p&lt;.1, the data may be inconsistent with a </span>
+<span class="sd">        powerlaw.  A data set of n(&gt;xmin)&gt;100 is required to distinguish a PL from an exponential,</span>
+<span class="sd">        and n(&gt;xmin)&gt;~300 is required to distinguish a log-normal distribution from a PL.</span>
+<span class="sd">        For more details, see figure 4.1 and section</span>
+
+<span class="sd">        **WARNING** This can take a very long time to run!  Execution time scales as </span>
+<span class="sd">        niter * setsize</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xmin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_alpha</span>
+        <span class="n">niter</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">niter</span><span class="p">)</span>
+
+        <span class="n">ntail</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">&gt;=</span> <span class="n">xmin</span><span class="p">)</span>
+        <span class="n">ntot</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">nnot</span> <span class="o">=</span> <span class="n">ntot</span><span class="o">-</span><span class="n">ntail</span>              <span class="c"># n(&lt;xmin)</span>
+        <span class="n">pnot</span> <span class="o">=</span> <span class="n">nnot</span><span class="o">/</span><span class="nb">float</span><span class="p">(</span><span class="n">ntot</span><span class="p">)</span>        <span class="c"># p(&lt;xmin)</span>
+        <span class="n">nonpldata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">&lt;</span><span class="n">xmin</span><span class="p">]</span>
+        <span class="n">nrandnot</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span> <span class="n">npr</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">ntot</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">pnot</span> <span class="p">)</span> <span class="c"># randomly choose how many to sample from &lt;xmin</span>
+        <span class="n">nrandtail</span> <span class="o">=</span> <span class="n">ntot</span> <span class="o">-</span> <span class="n">nrandnot</span>         <span class="c"># and the rest will be sampled from the powerlaw</span>
+
+        <span class="n">ksv</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">print_timing</span><span class="p">:</span> <span class="n">deltat</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">niter</span><span class="p">):</span>
+            <span class="c"># first, randomly sample from power law</span>
+            <span class="c"># with caveat!  </span>
+            <span class="n">nonplind</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">npr</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nrandnot</span><span class="p">)</span><span class="o">*</span><span class="n">nnot</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s">&#39;int&#39;</span><span class="p">)</span>
+            <span class="n">fakenonpl</span> <span class="o">=</span> <span class="n">nonpldata</span><span class="p">[</span><span class="n">nonplind</span><span class="p">]</span>
+            <span class="n">randarr</span> <span class="o">=</span> <span class="n">npr</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">nrandtail</span><span class="p">)</span>
+            <span class="n">fakepl</span> <span class="o">=</span> <span class="n">randarr</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">alpha</span><span class="p">))</span> <span class="o">*</span> <span class="n">xmin</span> 
+            <span class="n">fakedata</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">fakenonpl</span><span class="p">,</span><span class="n">fakepl</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">print_timing</span><span class="p">:</span> <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="c"># second, fit to powerlaw</span>
+            <span class="c"># (add some silencing kwargs optionally)</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="p">{</span><span class="s">&#39;quiet&#39;</span><span class="p">:</span><span class="bp">True</span><span class="p">,</span><span class="s">&#39;silent&#39;</span><span class="p">:</span><span class="bp">True</span><span class="p">,</span><span class="s">&#39;nosmall&#39;</span><span class="p">:</span><span class="bp">True</span><span class="p">}</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                    <span class="n">kwargs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="n">TEST</span> <span class="o">=</span> <span class="n">plfit</span><span class="p">(</span><span class="n">fakedata</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">ksv</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TEST</span><span class="o">.</span><span class="n">_ks</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">print_timing</span><span class="p">:</span> 
+                <span class="n">deltat</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span> <span class="p">)</span>
+                <span class="k">print</span> <span class="s">&quot;Iteration </span><span class="si">%i</span><span class="s">: </span><span class="si">%g</span><span class="s"> seconds&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">deltat</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        
+        <span class="n">ksv</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ksv</span><span class="p">)</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="p">(</span><span class="n">ksv</span><span class="o">&gt;</span><span class="bp">self</span><span class="o">.</span><span class="n">_ks</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">niter</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pval</span> <span class="o">=</span> <span class="n">p</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ks_rand</span> <span class="o">=</span> <span class="n">ksv</span>
+
+        <span class="k">print</span> <span class="s">&quot;p(</span><span class="si">%i</span><span class="s">) = </span><span class="si">%0.3f</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">niter</span><span class="p">,</span><span class="n">p</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">print_timing</span><span class="p">:</span> <span class="k">print</span> <span class="s">&quot;Iteration timing: </span><span class="si">%g</span><span class="s"> +/- </span><span class="si">%g</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">deltat</span><span class="p">),</span><span class="n">numpy</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">deltat</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">p</span><span class="p">,</span><span class="n">ksv</span>
+</div>
+<div class="viewcode-block" id="plfit.lognormal"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.lognormal">[docs]</a>    <span class="k">def</span> <span class="nf">lognormal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">doprint</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Use the maximum likelihood estimator for a lognormal distribution to</span>
+<span class="sd">        produce the best-fit lognormal parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># N = float(self.data.shape[0])</span>
+        <span class="c"># mu = log(self.data).sum() / N</span>
+        <span class="c"># sigmasquared = ( ( log(self.data) - mu )**2 ).sum() / N</span>
+        <span class="c"># self.lognormal_mu = mu</span>
+        <span class="c"># self.lognormal_sigma = numpy.sqrt(sigmasquared)</span>
+        <span class="c"># self.lognormal_likelihood = -N/2. * log(numpy.pi*2) - N/2. * log(sigmasquared) - 1/(2*sigmasquared) * (( self.data - mu )**2).sum()</span>
+        <span class="c"># if doprint:</span>
+        <span class="c">#     print &quot;Best fit lognormal is exp( -(x-%g)^2 / (2*%g^2)&quot; % (mu,numpy.sqrt(sigmasquared))</span>
+        <span class="c">#     print &quot;Likelihood: %g&quot; % (self.lognormal_likelihood)</span>
+        <span class="k">if</span> <span class="n">scipyOK</span><span class="p">:</span>
+            <span class="n">fitpars</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">lognorm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lognormal_dist</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">lognorm</span><span class="p">(</span><span class="o">*</span><span class="n">fitpars</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lognormal_ksD</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">lognormal_ksP</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">kstest</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">lognormal_dist</span><span class="o">.</span><span class="n">cdf</span><span class="p">)</span>
+            <span class="c"># nnlf = NEGATIVE log likelihood</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lognormal_likelihood</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="n">scipy</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">lognorm</span><span class="o">.</span><span class="n">nnlf</span><span class="p">(</span><span class="n">fitpars</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+
+            <span class="c"># Is this the right likelihood ratio?</span>
+            <span class="c"># Definition of L from eqn. B3 of Clauset et al 2009:</span>
+            <span class="c"># L = log(p(x|alpha))</span>
+            <span class="c"># _nnlf from scipy.stats.distributions:</span>
+            <span class="c"># -sum(log(self._pdf(x, *args)),axis=0)</span>
+            <span class="c"># Assuming the pdf and p(x|alpha) are both non-inverted, it looks</span>
+            <span class="c"># like the _nnlf and L have opposite signs, which would explain the</span>
+            <span class="c"># likelihood ratio I&#39;ve used here:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">power_lognorm_likelihood</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_likelihood</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">lognormal_likelihood</span><span class="p">)</span>
+            <span class="c"># a previous version had 2*(above).  That is the correct form if you want the likelihood ratio</span>
+            <span class="c"># statistic &quot;D&quot;: http://en.wikipedia.org/wiki/Likelihood-ratio_test</span>
+            <span class="c"># The above explanation makes sense, since nnlf is the *negative* log likelihood function:</span>
+            <span class="c">## nnlf  -- negative log likelihood function (to minimize)</span>
+            <span class="c">#</span>
+            <span class="c"># Assuming we want the ratio between the POSITIVE likelihoods, the D statistic is:</span>
+            <span class="c"># D = -2 log( L_power / L_lognormal )</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">likelihood_ratio_D</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_likelihood</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">lognormal_likelihood</span><span class="p">))</span>
+            
+            <span class="k">if</span> <span class="n">doprint</span><span class="p">:</span> 
+                <span class="k">print</span> <span class="s">&quot;Lognormal KS D: </span><span class="si">%g</span><span class="s">  p(D): </span><span class="si">%g</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lognormal_ksD</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">lognormal_ksP</span><span class="p">),</span>
+                <span class="k">print</span> <span class="s">&quot;  Likelihood Ratio Statistic (powerlaw/lognormal): </span><span class="si">%g</span><span class="s">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">likelihood_ratio_D</span>
+                <span class="k">print</span> <span class="s">&quot;At this point, have a look at Clauset et al 2009 Appendix C: determining sigma(likelihood_ratio)&quot;</span>
+</div>
+<div class="viewcode-block" id="plfit.plot_lognormal_pdf"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.plot_lognormal_pdf">[docs]</a>    <span class="k">def</span> <span class="nf">plot_lognormal_pdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot the fitted lognormal distribution</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="s">&#39;lognormal_dist&#39;</span><span class="p">):</span>
+            <span class="k">return</span>
+        
+        <span class="n">normalized_pdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lognormal_dist</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">lognormal_dist</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="n">minY</span><span class="p">,</span><span class="n">maxY</span> <span class="o">=</span> <span class="n">pylab</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span><span class="n">normalized_pdf</span><span class="o">*</span><span class="n">maxY</span><span class="p">,</span><span class="s">&#39;.&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="plfit.plot_lognormal_cdf"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit.plot_lognormal_cdf">[docs]</a>    <span class="k">def</span> <span class="nf">plot_lognormal_cdf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot the fitted lognormal distribution</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="s">&#39;lognormal_dist&#39;</span><span class="p">):</span>
+            <span class="k">return</span>
+
+        <span class="n">x</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">n</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">xcdf</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">dtype</span><span class="o">=</span><span class="s">&#39;float&#39;</span><span class="p">)</span><span class="o">/</span><span class="nb">float</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="n">lcdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lognormal_dist</span><span class="o">.</span><span class="n">sf</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">D_location</span> <span class="o">=</span> <span class="n">argmax</span><span class="p">(</span><span class="n">xcdf</span><span class="o">-</span><span class="n">lcdf</span><span class="p">)</span>
+        <span class="n">pylab</span><span class="o">.</span><span class="n">vlines</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">D_location</span><span class="p">],</span><span class="n">xcdf</span><span class="p">[</span><span class="n">D_location</span><span class="p">],</span><span class="n">lcdf</span><span class="p">[</span><span class="n">D_location</span><span class="p">],</span><span class="n">color</span><span class="o">=</span><span class="s">&#39;m&#39;</span><span class="p">,</span><span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        
+        <span class="n">pylab</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">lcdf</span><span class="p">,</span><span class="s">&#39;,&#39;</span><span class="p">,</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+</div></div>
+<div class="viewcode-block" id="plfit_lsq"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plfit_lsq">[docs]</a><span class="k">def</span> <span class="nf">plfit_lsq</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns A and B in y=Ax^B</span>
+<span class="sd">    http://mathworld.wolfram.com/LeastSquaresFittingPowerLaw.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">btop</span> <span class="o">=</span> <span class="n">n</span> <span class="o">*</span> <span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">*</span><span class="n">log</span><span class="p">(</span><span class="n">y</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">-</span> <span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">x</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">*</span><span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">y</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">bbottom</span> <span class="o">=</span> <span class="n">n</span><span class="o">*</span><span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">-</span> <span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">btop</span> <span class="o">/</span> <span class="n">bbottom</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="p">(</span> <span class="n">log</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">-</span> <span class="n">b</span> <span class="o">*</span> <span class="n">log</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
+
+    <span class="n">A</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">A</span><span class="p">,</span><span class="n">b</span>
+</div>
+<div class="viewcode-block" id="plexp"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plexp">[docs]</a><span class="k">def</span> <span class="nf">plexp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">xm</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">a</span><span class="o">=</span><span class="mf">2.5</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    CDF(x) for the piecewise distribution exponential x&lt;xmin, powerlaw x&gt;=xmin</span>
+<span class="sd">    This is the CDF version of the distributions drawn in fig 3.4a of Clauset et al.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">C</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="o">-</span><span class="n">xm</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span> <span class="o">-</span> <span class="n">xm</span><span class="o">/</span><span class="n">a</span> <span class="o">+</span> <span class="n">exp</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">*</span><span class="n">xm</span><span class="o">/</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">Ppl</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">(</span><span class="n">X</span><span class="p">):</span> <span class="mi">1</span><span class="o">+</span><span class="n">C</span><span class="o">*</span><span class="p">(</span><span class="n">xm</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">a</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">X</span><span class="o">/</span><span class="n">xm</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">a</span><span class="p">))</span>
+    <span class="n">Pexp</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">(</span><span class="n">X</span><span class="p">):</span> <span class="n">C</span><span class="o">*</span><span class="n">xm</span><span class="o">/</span><span class="n">a</span><span class="o">*</span><span class="n">exp</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">-</span><span class="n">C</span><span class="o">*</span><span class="p">(</span><span class="n">xm</span><span class="o">/</span><span class="n">a</span><span class="p">)</span><span class="o">*</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">a</span><span class="o">*</span><span class="p">(</span><span class="n">X</span><span class="o">/</span><span class="n">xm</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">d</span><span class="o">=</span><span class="n">Ppl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">d</span><span class="p">[</span><span class="n">x</span><span class="o">&lt;</span><span class="n">xm</span><span class="p">]</span><span class="o">=</span><span class="n">Pexp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">d</span>
+</div>
+<div class="viewcode-block" id="plexp_inv"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.plexp_inv">[docs]</a><span class="k">def</span> <span class="nf">plexp_inv</span><span class="p">(</span><span class="n">P</span><span class="p">,</span><span class="n">xm</span><span class="p">,</span><span class="n">a</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Inverse CDF for a piecewise PDF as defined in eqn. 3.10</span>
+<span class="sd">    of Clauset et al.  </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">C</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="o">-</span><span class="n">xm</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span> <span class="o">-</span> <span class="n">xm</span><span class="o">/</span><span class="n">a</span> <span class="o">+</span> <span class="n">exp</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">*</span><span class="n">xm</span><span class="o">/</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">Pxm</span> <span class="o">=</span> <span class="mi">1</span><span class="o">+</span><span class="n">C</span><span class="o">*</span><span class="p">(</span><span class="n">xm</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">a</span><span class="p">))</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">P</span><span class="o">*</span><span class="mi">0</span>
+    <span class="n">x</span><span class="p">[</span><span class="n">P</span><span class="o">&gt;=</span><span class="n">Pxm</span><span class="p">]</span> <span class="o">=</span> <span class="n">xm</span><span class="o">*</span><span class="p">(</span> <span class="p">(</span><span class="n">P</span><span class="p">[</span><span class="n">P</span><span class="o">&gt;=</span><span class="n">Pxm</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">a</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="n">C</span><span class="o">*</span><span class="n">xm</span><span class="p">)</span> <span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">a</span><span class="p">))</span> <span class="c"># powerlaw</span>
+    <span class="n">x</span><span class="p">[</span><span class="n">P</span><span class="o">&lt;</span><span class="n">Pxm</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">log</span><span class="p">(</span> <span class="p">(</span><span class="n">C</span><span class="o">*</span><span class="n">xm</span><span class="o">/</span><span class="n">a</span><span class="o">*</span><span class="n">exp</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">-</span><span class="n">P</span><span class="p">[</span><span class="n">P</span><span class="o">&lt;</span><span class="n">Pxm</span><span class="p">])</span><span class="o">/</span><span class="p">(</span><span class="n">C</span><span class="o">*</span><span class="n">xm</span><span class="o">/</span><span class="n">a</span><span class="p">)</span> <span class="p">)</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">xm</span><span class="o">/</span><span class="n">a</span><span class="p">)</span> <span class="c"># exp</span>
+
+    <span class="k">return</span> <span class="n">x</span>
+</div>
+<div class="viewcode-block" id="pl_inv"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.pl_inv">[docs]</a><span class="k">def</span> <span class="nf">pl_inv</span><span class="p">(</span><span class="n">P</span><span class="p">,</span><span class="n">xm</span><span class="p">,</span><span class="n">a</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">    Inverse CDF for a pure power-law</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">P</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">a</span><span class="p">))</span> <span class="o">*</span> <span class="n">xm</span>
+    <span class="k">return</span> <span class="n">x</span>
+</div>
+<div class="viewcode-block" id="test_fitter"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.test_fitter">[docs]</a><span class="k">def</span> <span class="nf">test_fitter</span><span class="p">(</span><span class="n">xmin</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span><span class="n">alpha</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span><span class="n">niter</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span><span class="n">npts</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span><span class="n">invcdf</span><span class="o">=</span><span class="n">plexp_inv</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Tests the power-law fitter </span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    ========</span>
+<span class="sd">    Example (fig 3.4b in Clauset et al.)::</span>
+
+<span class="sd">        xminin=[0.25,0.5,0.75,1,1.5,2,5,10,50,100]</span>
+<span class="sd">        xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=xminin,niter=1,npts=50000)</span>
+<span class="sd">        loglog(xminin,xmarr.squeeze(),&#39;x&#39;)</span>
+
+<span class="sd">    Example 2::</span>
+
+<span class="sd">        xminin=[0.25,0.5,0.75,1,1.5,2,5,10,50,100]</span>
+<span class="sd">        xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=xminin,niter=10,npts=1000)</span>
+<span class="sd">        loglog(xminin,xmarr.mean(axis=0),&#39;x&#39;)</span>
+
+<span class="sd">    Example 3::</span>
+
+<span class="sd">        xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=1.0,niter=1000,npts=1000)</span>
+<span class="sd">        hist(xmarr.squeeze());</span>
+<span class="sd">        # Test results:</span>
+<span class="sd">        # mean(xmarr) = 0.70, median(xmarr)=0.65 std(xmarr)=0.20</span>
+<span class="sd">        # mean(af) = 2.51 median(af) = 2.49  std(af)=0.14</span>
+<span class="sd">        # biased distribution; far from correct value of xmin but close to correct alpha</span>
+<span class="sd">    </span>
+<span class="sd">    Example 4::</span>
+
+<span class="sd">        xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=1.0,niter=1000,npts=1000,invcdf=pl_inv)</span>
+<span class="sd">        print(&quot;mean(xmarr): %0.2f median(xmarr): %0.2f std(xmarr): %0.2f&quot; % (mean(xmarr),median(xmarr),std(xmarr)))</span>
+<span class="sd">        print(&quot;mean(af): %0.2f median(af): %0.2f std(af): %0.2f&quot; % (mean(af),median(af),std(af)))</span>
+<span class="sd">        # mean(xmarr): 1.19 median(xmarr): 1.03 std(xmarr): 0.35</span>
+<span class="sd">        # mean(af): 2.51 median(af): 2.50 std(af): 0.07</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xmin</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">xmin</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">xmin</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">():</span>
+        <span class="n">xmin</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">lx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xmin</span><span class="p">)</span>
+    <span class="n">sz</span> <span class="o">=</span> <span class="p">[</span><span class="n">niter</span><span class="p">,</span><span class="n">lx</span><span class="p">]</span>
+    <span class="n">xmarr</span><span class="p">,</span><span class="n">alphaf_v</span><span class="p">,</span><span class="n">ksv</span><span class="p">,</span><span class="n">nxarr</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sz</span><span class="p">),</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sz</span><span class="p">),</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sz</span><span class="p">),</span><span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sz</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">lx</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">niter</span><span class="p">):</span>
+            <span class="n">randarr</span> <span class="o">=</span> <span class="n">npr</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">npts</span><span class="p">)</span>
+            <span class="n">fakedata</span> <span class="o">=</span> <span class="n">invcdf</span><span class="p">(</span><span class="n">randarr</span><span class="p">,</span><span class="n">xmin</span><span class="p">[</span><span class="n">j</span><span class="p">],</span><span class="n">alpha</span><span class="p">)</span>
+            <span class="n">TEST</span> <span class="o">=</span> <span class="n">plfit</span><span class="p">(</span><span class="n">fakedata</span><span class="p">,</span><span class="n">quiet</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span><span class="n">silent</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span><span class="n">nosmall</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="n">alphaf_v</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">TEST</span><span class="o">.</span><span class="n">_alpha</span>
+            <span class="n">ksv</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">TEST</span><span class="o">.</span><span class="n">_ks</span>
+            <span class="n">nxarr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">TEST</span><span class="o">.</span><span class="n">_ngtx</span>
+            <span class="n">xmarr</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">TEST</span><span class="o">.</span><span class="n">_xmin</span>
+
+    <span class="k">return</span> <span class="n">xmarr</span><span class="p">,</span><span class="n">alphaf_v</span><span class="p">,</span><span class="n">ksv</span><span class="p">,</span><span class="n">nxarr</span>
+
+
+
+</div>
+<div class="viewcode-block" id="discrete_likelihood"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.discrete_likelihood">[docs]</a><span class="k">def</span> <span class="nf">discrete_likelihood</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Equation B.8 in Clauset</span>
+
+<span class="sd">    Given a data set, an xmin value, and an alpha &quot;scaling parameter&quot;, computes</span>
+<span class="sd">    the log-likelihood (the value to be maximized) </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">scipyOK</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s">&quot;Can&#39;t import scipy.  Need scipy for zeta function.&quot;</span><span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">scipy.special</span> <span class="kn">import</span> <span class="n">zeta</span> <span class="k">as</span> <span class="n">zeta</span>
+
+    <span class="n">zz</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">]</span>
+    <span class="n">nn</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span>
+
+    <span class="n">sum_log_data</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="n">zeta</span> <span class="o">=</span> <span class="n">zeta</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">xmin</span><span class="p">)</span>
+
+    <span class="n">L_of_alpha</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="n">nn</span><span class="o">*</span><span class="n">log</span><span class="p">(</span><span class="n">zeta</span><span class="p">)</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">sum_log_data</span>
+
+    <span class="k">return</span> <span class="n">L_of_alpha</span>
+</div>
+<div class="viewcode-block" id="discrete_likelihood_vector"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.discrete_likelihood_vector">[docs]</a><span class="k">def</span> <span class="nf">discrete_likelihood_vector</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpharange</span><span class="o">=</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span><span class="mf">3.5</span><span class="p">),</span> <span class="n">n_alpha</span><span class="o">=</span><span class="mi">201</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute the likelihood for all &quot;scaling parameters&quot; in the range (alpharange)</span>
+<span class="sd">    for a given xmin.  This is only part of the discrete value likelihood</span>
+<span class="sd">    maximization problem as described in Clauset et al</span>
+<span class="sd">    (Equation B.8)</span>
+
+<span class="sd">    *alpharange* [ 2-tuple ] </span>
+<span class="sd">        Two floats specifying the upper and lower limits of the power law alpha to test</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">scipy.special</span> <span class="kn">import</span> <span class="n">zeta</span> <span class="k">as</span> <span class="n">zeta</span>
+
+    <span class="n">zz</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">]</span>
+    <span class="n">nn</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span>
+
+    <span class="n">alpha_vector</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">alpharange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">alpharange</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">n_alpha</span><span class="p">)</span>
+    <span class="n">sum_log_data</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">zz</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="c"># alpha_vector is a vector, xmin is a scalar</span>
+    <span class="n">zeta_vector</span> <span class="o">=</span> <span class="n">zeta</span><span class="p">(</span><span class="n">alpha_vector</span><span class="p">,</span> <span class="n">xmin</span><span class="p">)</span>
+
+    <span class="c">#xminvec = numpy.arange(1.0,xmin)</span>
+
+    <span class="c">#xminalphasum = numpy.sum([xm**(-alpha_vector) for xm in xminvec])</span>
+    <span class="c">#L = -1*alpha_vector*sum_log_data - nn*log(zeta_vector) - xminalphasum</span>
+
+    <span class="n">L_of_alpha</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="o">*</span><span class="n">nn</span><span class="o">*</span><span class="n">log</span><span class="p">(</span><span class="n">zeta_vector</span><span class="p">)</span> <span class="o">-</span> <span class="n">alpha_vector</span> <span class="o">*</span> <span class="n">sum_log_data</span>
+
+    <span class="k">return</span> <span class="n">L_of_alpha</span>
+</div>
+<div class="viewcode-block" id="discrete_max_likelihood_arg"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.discrete_max_likelihood_arg">[docs]</a><span class="k">def</span> <span class="nf">discrete_max_likelihood_arg</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpharange</span><span class="o">=</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span><span class="mf">3.5</span><span class="p">),</span> <span class="n">n_alpha</span><span class="o">=</span><span class="mi">201</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the *argument* of the max of the likelihood of the data given an input xmin</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">likelihoods</span> <span class="o">=</span> <span class="n">discrete_likelihood_vector</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpharange</span><span class="o">=</span><span class="n">alpharange</span><span class="p">,</span> <span class="n">n_alpha</span><span class="o">=</span><span class="n">n_alpha</span><span class="p">)</span>
+    <span class="n">Largmax</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">likelihoods</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Largmax</span>
+</div>
+<div class="viewcode-block" id="discrete_max_likelihood"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.discrete_max_likelihood">[docs]</a><span class="k">def</span> <span class="nf">discrete_max_likelihood</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpharange</span><span class="o">=</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span><span class="mf">3.5</span><span class="p">),</span> <span class="n">n_alpha</span><span class="o">=</span><span class="mi">201</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the *argument* of the max of the likelihood of the data given an input xmin</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">likelihoods</span> <span class="o">=</span> <span class="n">discrete_likelihood_vector</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpharange</span><span class="o">=</span><span class="n">alpharange</span><span class="p">,</span> <span class="n">n_alpha</span><span class="o">=</span><span class="n">n_alpha</span><span class="p">)</span>
+    <span class="n">Lmax</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">likelihoods</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Lmax</span>
+</div>
+<div class="viewcode-block" id="most_likely_alpha"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.most_likely_alpha">[docs]</a><span class="k">def</span> <span class="nf">most_likely_alpha</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpharange</span><span class="o">=</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span><span class="mf">3.5</span><span class="p">),</span> <span class="n">n_alpha</span><span class="o">=</span><span class="mi">201</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the most likely alpha for the data given an xmin</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">alpha_vector</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">alpharange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">alpharange</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">n_alpha</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">alpha_vector</span><span class="p">[</span><span class="n">discrete_max_likelihood_arg</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpharange</span><span class="o">=</span><span class="n">alpharange</span><span class="p">,</span> <span class="n">n_alpha</span><span class="o">=</span><span class="n">n_alpha</span><span class="p">)]</span>
+</div>
+<div class="viewcode-block" id="discrete_alpha_mle"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.discrete_alpha_mle">[docs]</a><span class="k">def</span> <span class="nf">discrete_alpha_mle</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">):</span> 
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Equation B.17 of Clauset et al 2009</span>
+
+<span class="sd">    The Maximum Likelihood Estimator of the &quot;scaling parameter&quot; alpha in the</span>
+<span class="sd">    discrete case is similar to that in the continuous case</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c"># boolean indices of positive data</span>
+    <span class="n">gexmin</span> <span class="o">=</span> <span class="p">(</span><span class="n">data</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">)</span>
+    <span class="n">nn</span> <span class="o">=</span> <span class="n">gexmin</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">nn</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="n">xx</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">gexmin</span><span class="p">]</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">nn</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span> <span class="nb">sum</span><span class="p">(</span><span class="n">log</span><span class="p">(</span><span class="n">xx</span><span class="o">/</span><span class="p">(</span><span class="n">xmin</span><span class="o">-</span><span class="mf">0.5</span><span class="p">)))</span> <span class="p">)</span><span class="o">**-</span><span class="mi">1</span>
+    <span class="k">return</span> <span class="n">alpha</span>
+</div>
+<div class="viewcode-block" id="discrete_best_alpha"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.discrete_best_alpha">[docs]</a><span class="k">def</span> <span class="nf">discrete_best_alpha</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">alpharangemults</span><span class="o">=</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span><span class="mf">1.1</span><span class="p">),</span> <span class="n">n_alpha</span><span class="o">=</span><span class="mi">201</span><span class="p">,</span> <span class="n">approximate</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Use the maximum L to determine the most likely value of alpha</span>
+
+<span class="sd">    *alpharangemults* [ 2-tuple ]</span>
+<span class="sd">        Pair of values indicating multiplicative factors above and below the</span>
+<span class="sd">        approximate alpha from the MLE alpha to use when determining the</span>
+<span class="sd">        &quot;exact&quot; alpha (by directly maximizing the likelihood function)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">xmins</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">approximate</span><span class="p">:</span>
+        <span class="n">alpha_of_xmin</span> <span class="o">=</span> <span class="p">[</span> <span class="n">discrete_alpha_mle</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">xmin</span><span class="p">)</span> <span class="k">for</span> <span class="n">xmin</span> <span class="ow">in</span> <span class="n">xmins</span> <span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">alpha_approx</span> <span class="o">=</span> <span class="p">[</span> <span class="n">discrete_alpha_mle</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">xmin</span><span class="p">)</span> <span class="k">for</span> <span class="n">xmin</span> <span class="ow">in</span> <span class="n">xmins</span> <span class="p">]</span>
+        <span class="n">alpharanges</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.9</span><span class="o">*</span><span class="n">a</span><span class="p">,</span><span class="mf">1.1</span><span class="o">*</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">alpha_approx</span><span class="p">]</span>
+        <span class="n">alpha_of_xmin</span> <span class="o">=</span> <span class="p">[</span> <span class="n">most_likely_alpha</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">xmin</span><span class="p">,</span><span class="n">alpharange</span><span class="o">=</span><span class="n">ar</span><span class="p">,</span><span class="n">n_alpha</span><span class="o">=</span><span class="n">n_alpha</span><span class="p">)</span> <span class="k">for</span> <span class="n">xmin</span><span class="p">,</span><span class="n">ar</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xmins</span><span class="p">,</span><span class="n">alpharanges</span><span class="p">)</span> <span class="p">]</span>
+    <span class="n">ksvalues</span> <span class="o">=</span> <span class="p">[</span> <span class="n">discrete_ksD</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span> <span class="k">for</span> <span class="n">xmin</span><span class="p">,</span><span class="n">alpha</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xmins</span><span class="p">,</span><span class="n">alpha_of_xmin</span><span class="p">)</span> <span class="p">]</span>
+    
+    <span class="n">best_index</span> <span class="o">=</span> <span class="n">argmin</span><span class="p">(</span><span class="n">ksvalues</span><span class="p">)</span>
+    <span class="n">best_alpha</span> <span class="o">=</span> <span class="n">alpha_of_xmin</span><span class="p">[</span><span class="n">best_index</span><span class="p">]</span>
+    <span class="n">best_xmin</span> <span class="o">=</span> <span class="n">xmins</span><span class="p">[</span><span class="n">best_index</span><span class="p">]</span>
+    <span class="n">best_ks</span> <span class="o">=</span> <span class="n">ksvalues</span><span class="p">[</span><span class="n">best_index</span><span class="p">]</span>
+    <span class="n">best_likelihood</span> <span class="o">=</span> <span class="n">discrete_likelihood</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">best_xmin</span><span class="p">,</span> <span class="n">best_alpha</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&quot;alpha = </span><span class="si">%f</span><span class="s">   xmin = </span><span class="si">%f</span><span class="s">   ksD = </span><span class="si">%f</span><span class="s">   L = </span><span class="si">%f</span><span class="s">   (n&lt;x) = </span><span class="si">%i</span><span class="s">  (n&gt;=x) = </span><span class="si">%i</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">best_alpha</span><span class="p">,</span> <span class="n">best_xmin</span><span class="p">,</span> <span class="n">best_ks</span><span class="p">,</span> <span class="n">best_likelihood</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">data</span><span class="o">&lt;</span><span class="n">best_xmin</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="p">(</span><span class="n">data</span><span class="o">&gt;=</span><span class="n">best_xmin</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">best_alpha</span><span class="p">,</span><span class="n">best_xmin</span><span class="p">,</span><span class="n">best_ks</span><span class="p">,</span><span class="n">best_likelihood</span>
+
+</div>
+<div class="viewcode-block" id="discrete_ksD"><a class="viewcode-back" href="../../plfit.html#plfit.plfit.discrete_ksD">[docs]</a><span class="k">def</span> <span class="nf">discrete_ksD</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    given a sorted data set, a minimum, and an alpha, returns the power law ks-test</span>
+<span class="sd">    D value w/data</span>
+
+<span class="sd">    The returned value is the &quot;D&quot; parameter in the ks test</span>
+<span class="sd">    </span>
+<span class="sd">    (this is implemented differently from the continuous version because there</span>
+<span class="sd">    are potentially multiple identical points that need comparison to the power</span>
+<span class="sd">    law)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">zz</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">&gt;=</span><span class="n">xmin</span><span class="p">])</span>
+    <span class="n">nn</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">zz</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">nn</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span> <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">inf</span>
+    <span class="c">#cx = numpy.arange(nn,dtype=&#39;float&#39;)/float(nn)</span>
+    <span class="c">#cf = 1.0-(zz/xmin)**(1.0-alpha)</span>
+    <span class="n">model_cdf</span> <span class="o">=</span> <span class="mf">1.0</span><span class="o">-</span><span class="p">(</span><span class="n">zz</span><span class="o">/</span><span class="n">xmin</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mf">1.0</span><span class="o">-</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="n">data_cdf</span>  <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span><span class="n">zz</span><span class="p">,</span><span class="n">side</span><span class="o">=</span><span class="s">&#39;left&#39;</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">nn</span><span class="p">))</span>
+
+    <span class="n">ks</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">model_cdf</span><span class="o">-</span><span class="n">data_cdf</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ks</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          <h3>Table Of Contents</h3>
+          
+          <h3 style="margin-top: 1.5em;">Search</h3>
+          <form class="search" action="../../search.html" method="get">
+            <input type="text" name="q" />
+            <input type="submit" value="Go" />
+            <input type="hidden" name="check_keywords" value="yes" />
+            <input type="hidden" name="area" value="default" />
+          </form>
+          <p class="searchtip" style="font-size: 90%">
+            Enter search terms or a module, class or function name.
+          </p>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <a href="../../np-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../genindex.html" title="General Index"
+             >index</a>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer">
+        &copy; Copyright 2011, Adam Ginsburg.
+      Last updated on 21 Nov 2012.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.2pre.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>
