@@ -1,2 +1,6 @@
 *.[1234]
 .svn
+*.so
+ipython_log*py
+*patch
+build

@@ -1,10 +1,22 @@
-#summary Python implementation of a power-law distribution fitter.
-#labels powerlaw
 = Power-law Distribution Fitting =
+This is a python implementation of a power-law distribution fitter.  The code
+here was originally hosted on
+[agpy](http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki) but was moved
+and re-packaged to make setup.py cleaner.  
 
-Aaron Clauset et al. address the issue of fitting power-laws to distributions on [http://www.santafe.edu/~aaronc/powerlaws/ this website] and in their paper [http://arxiv.org/abs/0706.1062 Power-law distributions in empirical data].  I have created a python implementation of their code because I didn't have matlab or R and wanted to do some power-law fitting. 
+Aaron Clauset et al. address the issue of fitting power-laws to distributions
+on [http://www.santafe.edu/~aaronc/powerlaws/ this website] and in their paper
+[http://arxiv.org/abs/0706.1062 Power-law distributions in empirical data].  I
+have created a python implementation of their code because I didn't have matlab
+or R and wanted to do some power-law fitting. 
 
-Power-laws are very commonly used in astronomy and are typically used to describe the initial mass function (IMF), the core mass function (CMF), and often luminosity distributions.  Most distributions in astronomy tend to be apparent power-laws because the source counts are too few or too narrow to distinguish powerlaws from log-normal and other distributions.  But, to this end, I've included the testing mechanism to test for consistency with a power law as described in the above paper.
+Power-laws are very commonly used in astronomy and are typically used to
+describe the initial mass function (IMF), the core mass function (CMF), and
+often luminosity distributions.  Most distributions in astronomy tend to be
+apparent power-laws because the source counts are too few or too narrow to
+distinguish powerlaws from log-normal and other distributions.  But, to this
+end, I've included the testing mechanism to test for consistency with a power
+law as described in the above paper.
 
 Only the continuous case is implemented in this case; my research interests do not (yet) require the discrete distribution.  
  * *2/3/2012* I've implemented the discrete case.
