@@ -22,9 +22,20 @@ import sys
 import os
 import shutil
 
-print "To create cplfit.so (for importing), call command: "
-print "python setup.py build_ext --inplace"
-print "If this fails, make sure c_numpy.pxd is in the path somewhere (e.g. this directory)"
+# copied from pypseckit's...
+with open('README.rst') as file:
+    long_description = file.read()
+
+with open('CHANGES') as file:
+    long_description += file.read()
+
+with open('REQUIREMENTS') as file:
+    requirements = file.readlines()
+
+
+# print "To create cplfit.so (for importing), call command: "
+# print "python setup.py build_ext --inplace"
+# print "If this fails, make sure c_numpy.pxd is in the path somewhere (e.g. this directory)"
 
 try:
     from numpy.distutils.misc_util import get_numpy_include_dirs
@@ -70,6 +81,7 @@ if __name__=="__main__":
         name = "plfit",
         version = "1.0",
         description = "Python implementation of Aaron Clauset's power-law distribution fitter",
+        long_description=long_description,
         author = "Adam Ginsburg",
         author_email = "adam.ginsburg@colorado.edu",
         url="http://code.google.com/p/agpy/wiki/PowerLaw",

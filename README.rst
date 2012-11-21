@@ -1,14 +1,14 @@
 Power-law Distribution Fitting
 ==============================
 This is a python implementation of a power-law distribution fitter.  The code
-here was originally hosted on
-[agpy](http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki) but was moved
-and re-packaged to make setup.py cleaner.  
+here was originally hosted on `agpy
+<http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki>`_ but was
+moved and re-packaged to make setup.py cleaner.  
 
 Aaron Clauset et al. address the issue of fitting power-laws to distributions
-on [this website](http://www.santafe.edu/~aaronc/powerlaws/) and in their paper
-[Power-law distributions in empirical
-data](http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki).  I have
+on `this website <http://www.santafe.edu/~aaronc/powerlaws/>`_ and in their paper
+`Power-law distributions in empirical
+data <http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki>`_.  I have
 created a python implementation of their code because I didn't have matlab or R
 and wanted to do some power-law fitting. 
 
@@ -22,7 +22,7 @@ law as described in the above paper.
 
 The python internal documentation is complete.  A brief description of relevant functions is included here for convenience:
 
-plfit is implemented as a class.  This means that you import plfit, and declare an instance of the plfit class:
+plfit is implemented as a class.  This means that you import plfit, and declare an instance of the plfit class::
 
     import plfit
     X = rand(1000)
@@ -30,12 +30,18 @@ plfit is implemented as a class.  This means that you import plfit, and declare 
 
 The results of the fit are printed to the screen (if desired) and are stored as part of the object.
 
-`alpha_` and `kstest_` are functions used internally to determine the ks-statistic and alpha values as a function of xmin.
+``alpha_`` and ``kstest_`` are functions used internally to determine the ks-statistic and alpha values as a function of xmin.
 
 There are 3 predefined plotting functions:
-  * `alphavsks` plots alpha on the y-axis vs. the ks statistic value on the x-axis with the 'best-fit' alpha value plotted with error bars.   These plots are a useful way to determine if other values of xmin are similarly good fits.
-  * `plotcdf` plots the cumulative distribution function along with the best-fit power law
-  * `plotpdf` plots a histogram of the PDF with the best fit power law.  It defaults to log binning (i.e. a linear power-law fit) but can do dN/dS and linear binning as well.
+  * ``alphavsks`` plots alpha on the y-axis vs. the ks statistic value on the
+    x-axis with the 'best-fit' alpha value plotted with error bars.   These
+    plots are a useful way to determine if other values of xmin are similarly
+    good fits.
+  * ``plotcdf`` plots the cumulative distribution function along with the
+    best-fit power law
+  * ``plotpdf`` plots a histogram of the PDF with the best fit power law.  It
+    defaults to log binning (i.e. a linear power-law fit) but can do dN/dS and
+    linear binning as well.
 
 test_pl uses the fitted power-law as the starting point for a monte-carlo test of whether the powerlaw is an acceptable fit.  It returns a "p-value" that should be >0.1 if a power-law fit is to be considered (though a high p-value does not ensure that the distribution function is a power law!).
 
@@ -57,30 +63,32 @@ To install the fortran function, run:
 f2py -c fplfit.f -m fplfit
 
 
-For usage *examples*, view [http://code.google.com/p/agpy/source/browse/trunk/plfit/tests/speedcompare_plfit.py speedcompare_plfit.py], [http://code.google.com/p/agpy/source/browse/trunk/plfit/tests/clauset2009_tests.py clauset2009_tests.py], [http://code.google.com/p/agpy/source/browse/trunk/plfit/tests/plfit_tests.py plfit_tests.py].
+For usage *examples*, see
+ * `<https://github.com/keflavich/plfit/blob/master/plfit/tests/clauset2009_tests.py>`_
+ * `<https://github.com/keflavich/plfit/blob/master/plfit/tests/plfit_tests.py>`_
+ * `<https://github.com/keflavich/plfit/blob/master/plfit/tests/speedcompare_plfit.py>`_
 
-A very simple example:
-{{{
-import plfit
-from numpy.random import rand,seed
+A very simple example::
 
-# generate a power law using the "inverse" power-law generator code
-X=plfit.plexp_inv(rand(1000),1,2.5)
+    import plfit
+    from numpy.random import rand,seed
 
-# use the numpy version to fit (usefortran=False is only needed if you installed the fortran version)
-myplfit=plfit.plfit(X,usefortran=False)
-# output should look something like this:
-# PYTHON plfit executed in 0.201362 seconds
-# xmin: 0.621393 n(>xmin): 263 alpha: 2.39465 +/- 0.0859979   Log-Likelihood: -238.959   ks: 0.0278864 p(ks): 0.986695
+    # generate a power law using the "inverse" power-law generator code
+    X=plfit.plexp_inv(rand(1000),1,2.5)
 
-# generate some plots
-from pylab import *
-figure(1)
-myplfit.plotpdf()
+    # use the numpy version to fit (usefortran=False is only needed if you installed the fortran version)
+    myplfit=plfit.plfit(X,usefortran=False)
+    # output should look something like this:
+    # PYTHON plfit executed in 0.201362 seconds
+    # xmin: 0.621393 n(>xmin): 263 alpha: 2.39465 +/- 0.0859979   Log-Likelihood: -238.959   ks: 0.0278864 p(ks): 0.986695
 
-figure(2)
-myplfit.plotcdf()
-}}}
+    # generate some plots
+    from pylab import *
+    figure(1)
+    myplfit.plotpdf()
+
+    figure(2)
+    myplfit.plotcdf()
 
 
 *If you use this code, please cite Clauset et al 2009 and consider posting a comment below.*  
@@ -90,20 +98,3 @@ Direction citations to the source are welcome!  The python translation has been 
  * http://adsabs.harvard.edu/abs/2011ApJ...735...51M
  * http://adsabs.harvard.edu/abs/2011ApJ...736..149G
  * http://www.rsc.org/suppdata/CC/c0/c0cc00366b/c0cc00366b.pdf
-Hide details
-Change log
-r443 by keflavich@gmail.com on Feb 3, 2012   Diff
-added info about discrete implementation
-Go to: 	
-Double click a line to add a comment
-Older revisions
- r430 by keflavich@gmail.com on Jan 23, 2012   Diff 
- r381 by keflavich@gmail.com on Nov 21, 2011   Diff 
- r303 by keflavich on Mar 24, 2011   Diff 
-All revisions of this file
-File info
-Size: 5159 bytes, 81 lines
-View raw file
-Terms - Privacy - Project Hosting Help
-Powered by Google Project Hosting
-
