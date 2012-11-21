@@ -5,6 +5,30 @@ here was originally hosted on `agpy
 <http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki>`_ but was
 moved and re-packaged to make setup.py cleaner.  
 
+
+Installation
+------------
+
+I've attempted to make the setup.py file work nicely, but it includes some hacks, so if you run into trouble,
+please report it::
+
+    git clone git@github.com:keflavich/plfit.git
+    cd plfit
+    python setup.py install
+
+*If* ``python setup.py install`` doesn't work, you can try the following:
+
+To install the cython function, run:
+``python setup.py build_ext --inplace``
+
+To install the fortran function::
+
+    cd plfit/plfit/ 
+    f2py -c fplfit.f -m fplfit --fcompiler=gfortran
+
+Description
+-----------
+
 Aaron Clauset et al. address the issue of fitting power-laws to distributions
 on `this website <http://www.santafe.edu/~aaronc/powerlaws/>`_ and in their paper
 `Power-law distributions in empirical
@@ -52,15 +76,17 @@ test_fitter uses the previous two functions to test the fitter's ability to retu
 
 The powerlaw fitter is very effective at returning the correct value of alpha but not as good at returning the correct value of xmin.
 
-There are 3 implementations of the code internals.  fplfit.f is a fortran function, cplfit.pyx is a cython function, and plfit.py is the wrapper and includes a python-only implementation that requires numpy.  FORTRAN is fastest, follow closely by cython.  Python is ~3x slower.  
+There are 3 implementations of the code internals.  fplfit.f is a fortran
+function, cplfit.pyx is a cython function, and plfit.py is the wrapper and
+includes a python-only implementation that requires numpy.  FORTRAN is fastest,
+follow closely by cython.  Python is ~3x slower.  
 
-As of November 21, 2011, there is a pure python (i.e., no numpy) implementation at [http://code.google.com/p/agpy/source/browse/trunk/plfit/plfit_py.py plfit_py.py].  It's slower and hobbled, but it works, and perhaps will run fast with [http://pypy.org/ pypy].
+As of November 21, 2011, there is a pure python (i.e., no numpy) implementation
+at <https://github.com/keflavich/plfit/blob/master/plfit/plfit_py.py> - you can just
+put this file in your local working directory and import it, since it contains
+no requirements beyond pure python.  It's slower and hobbled, but it works, and perhaps
+will run fast with `pypy <http://pypy.org/>`_.
 
-To install the cython function, run:
-python setup.py build_ext --inplace
-
-To install the fortran function, run:
-f2py -c fplfit.f -m fplfit
 
 
 For usage *examples*, see
