@@ -67,14 +67,21 @@ There are 3 predefined plotting functions:
     defaults to log binning (i.e. a linear power-law fit) but can do dN/dS and
     linear binning as well.
 
-test_pl uses the fitted power-law as the starting point for a monte-carlo test of whether the powerlaw is an acceptable fit.  It returns a "p-value" that should be >0.1 if a power-law fit is to be considered (though a high p-value does not ensure that the distribution function is a power law!).
+Other useful functions:
+ * ``test_pl`` uses the fitted power-law as the starting point for a monte-carlo
+test of whether the powerlaw is an acceptable fit.  It returns a "p-value" that
+should be >0.1 if a power-law fit is to be considered (though a high p-value
+does not ensure that the distribution function is a power law!).
 
-plexp_inv creates a cutoff power-law distribution with an exponential tail-off.  It is useful for tests.
-pl_inv creates a pure cutoff power-law distribution
-test_fitter uses the previous two functions to test the fitter's ability to return the correct xmin and alpha values for large numbers of iterations
+ * ``plexp_inv`` creates a cutoff power-law distribution with an exponential
+   tail-off.  It is useful for tests.
+ * ``pl_inv`` creates a pure cutoff power-law distribution
+ * ``test_fitter`` uses the previous two functions to test the fitter's ability
+   to return the correct xmin and alpha values for large numbers of iterations
 
 
-The powerlaw fitter is very effective at returning the correct value of alpha but not as good at returning the correct value of xmin.
+The powerlaw fitter is very effective at returning the correct value of alpha
+but not as good at returning the correct value of xmin.
 
 There are 3 implementations of the code internals.  fplfit.f is a fortran
 function, cplfit.pyx is a cython function, and plfit.py is the wrapper and
@@ -86,7 +93,6 @@ at <https://github.com/keflavich/plfit/blob/master/plfit/plfit_py.py> - you can 
 put this file in your local working directory and import it, since it contains
 no requirements beyond pure python.  It's slower and hobbled, but it works, and perhaps
 will run fast with `pypy <http://pypy.org/>`_.
-
 
 
 For usage *examples*, see
