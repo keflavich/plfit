@@ -69,9 +69,9 @@ There are 3 predefined plotting functions:
 
 Other useful functions:
  * ``test_pl`` uses the fitted power-law as the starting point for a monte-carlo
-test of whether the powerlaw is an acceptable fit.  It returns a "p-value" that
-should be >0.1 if a power-law fit is to be considered (though a high p-value
-does not ensure that the distribution function is a power law!).
+   test of whether the powerlaw is an acceptable fit.  It returns a "p-value" that
+   should be >0.1 if a power-law fit is to be considered (though a high p-value
+   does not ensure that the distribution function is a power law!).
 
  * ``plexp_inv`` creates a cutoff power-law distribution with an exponential
    tail-off.  It is useful for tests.
