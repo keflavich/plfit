@@ -13,6 +13,16 @@
 
 import sys, os
 
+try:
+    import numpy
+except ImportError:
+    print "Failed to import numpy"
+try:
+    import numpydoc
+    print "numpydoc path is ",numpydoc.__file__
+except ImportError:
+    print "Failed to import numpydoc"
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
