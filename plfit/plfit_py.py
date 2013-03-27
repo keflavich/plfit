@@ -9,17 +9,15 @@
 Pure-Python version of plfit.py
 ===============================
 
-plfit.py - a python power-law fitter based on code by Aaron Clauset
-http://www.santafe.edu/~aaronc/powerlaws/
-http://arxiv.org/abs/0706.1062 "Power-law distributions in empirical data" 
-Requires pylab (matplotlib), which requires numpy
+A *pure* python power-law distribution fitter based on code by Aaron Clauset.
+This is the slowest implementation, but has no dependencies.
 
-example use:
-from plfit import plfit
+Example very simple use::
 
-MyPL = plfit(mydata)
-MyPL.plotpdf(log=True)
+    from plfit_py import plfit
 
+    MyPL = plfit(mydata)
+    MyPL.plotpdf(log=True)
 
 """
 

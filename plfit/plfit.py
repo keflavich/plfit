@@ -8,22 +8,24 @@
 # difficult to derive and must be acquired iteratively.
 
 """
-plfit.py - a python power-law fitter based on code by Aaron Clauset
-http://www.santafe.edu/~aaronc/powerlaws/
-http://arxiv.org/abs/0706.1062 "Power-law distributions in empirical data" 
+numpy/matplotlib version of plfit.py
+====================================
+A power-law distribution fitter based on code by Aaron Clauset.  It can use
+fortran, cython, or numpy-based power-law fitting 'backends'.  Fortran's
+fastest.
+
 Requires pylab (matplotlib), which requires numpy
 
-example use:
-from plfit import plfit
+Example very simple use::
 
-MyPL = plfit(mydata)
-MyPL.plotpdf(log=True)
+    from plfit import plfit
 
+    MyPL = plfit(mydata)
+    MyPL.plotpdf(log=True)
 
 """
 
 import numpy 
-# this may break downstream items numpy.seterr(all='ignore') # likely to cause failures otherwise
 import time
 import pylab
 try:
@@ -48,12 +50,12 @@ except ImportError:
 
 class plfit:
     """
-    A Python implementation of the Matlab code http://www.santafe.edu/~aaronc/powerlaws/plfit.m
-    from http://www.santafe.edu/~aaronc/powerlaws/
+    A Python implementation of the Matlab code `http://www.santafe.edu/~aaronc/powerlaws/plfit.m`_
+    from `http://www.santafe.edu/~aaronc/powerlaws/`_.
 
-    See A. Clauset, C.R. Shalizi, and M.E.J. Newman, "Power-law distributions
+    See `A. Clauset, C.R. Shalizi, and M.E.J. Newman, "Power-law distributions
     in empirical data" SIAM Review, 51, 661-703 (2009). (arXiv:0706.1062)
-    http://arxiv.org/abs/0706.1062
+    <http://arxiv.org/abs/0706.1062>`_
 
     The output "alpha" is defined such that :math:`p(x) ~ (x/xmin)^{-alpha}`
     """

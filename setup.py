@@ -1,9 +1,8 @@
-#from distutils.core import setup
-#from distutils.extension import Extension
-# removed following lines as per http://www.mail-archive.com/numpy-discussion@scipy.org/msg19932.html
-# OLD from numpy.distutils.core import setup
-# OLD from numpy.distutils.core import Extension
-from distutils.core import setup,Extension
+import sys
+if 'build_sphinx' in sys.argv:
+    from setuptools import setup,Extension
+else:
+    from distutils.core import setup,Extension
 import distutils.util
 #from scipy_distutils.core import Extension as scipyExtension
 #from scipy_distutils.core import setup as scipysetup
@@ -18,11 +17,14 @@ build_src.have_pyrex = True
 from Cython.Distutils import build_ext
 import Cython
 import numpy
-import sys
 import os
 import shutil
 
-# copied from pypseckit's...
+# removed following lines as per http://www.mail-archive.com/numpy-discussion@scipy.org/msg19932.html
+# OLD from numpy.distutils.core import setup
+# OLD from numpy.distutils.core import Extension
+
+# copied from pyspeckit's...
 with open('README.rst') as file:
     long_description = file.read()
 
