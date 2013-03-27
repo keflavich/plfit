@@ -29,7 +29,7 @@ Description
 -----------
 
 Aaron Clauset et al. address the issue of fitting power-laws to distributions
-on `this website <http://www.santafe.edu/~aaronc/powerlaws/>`_ and in their paper
+on `this website <http://www.santafe.edu/~aaronc/powerlaws/>`_ and in their paper,
 `Power-law distributions in empirical
 data <http://code.google.com/p/agpy/source/browse/wiki/PowerLaw.wiki>`_.  I have
 created a python implementation of their code because I didn't have matlab or R
