@@ -34,7 +34,7 @@ class plfit:
     in empirical data" SIAM Review, 51, 661-703 (2009). (arXiv:0706.1062)
     http://arxiv.org/abs/0706.1062
 
-    The output "alpha" is defined such that :math:`p(x) ~ (x/xmin)^{-alpha}`
+    The output "alpha" is defined such that :math:`p(x) \sim (x/xmin)^{-alpha}`
     """
 
     def __init__(self,x,**kwargs):
