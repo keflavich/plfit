@@ -74,13 +74,17 @@ class plfit:
 
 
     def alpha_(self,x):
-        def alpha(xmin,x=x):
-            """
-            given a sorted data set and a minimum, returns power law MLE fit
-            data is passed as a keyword parameter so that it can be vectorized
+        """ Create a mappable function alpha to apply to each xmin in a list of xmins.
+        This is essentially the slow version of fplfit/cplfit, though I bet it could
+        be speeded up with a clever use of parellel_map.  Not intended to be used by users.
 
-            if there is only one element, return alpha=0
-            """
+        Docstring for the generated alpha function:
+        given a sorted data set and a minimum, returns power law MLE fit
+        data is passed as a keyword parameter so that it can be vectorized
+
+        if there is only one element, return alpha=0
+        """
+        def alpha(xmin,x=x):
             gexmin = x>=xmin
             n = gexmin.sum()
             if n < 2:
@@ -91,13 +95,16 @@ class plfit:
         return alpha
 
     def kstest_(self,x):
-        def kstest(xmin,x=x):
-            """
-            given a sorted data set and a minimum, returns power law MLE ks-test w/data
-            data is passed as a keyword parameter so that it can be vectorized
+    """
+    Create a mappable function kstest to apply to each xmin in a list of xmins.
 
-            The returned value is the "D" parameter in the ks test...
-            """
+    Docstring for the generated kstest function:
+    given a sorted data set and a minimum, returns power law MLE ks-test w/data
+    data is passed as a keyword parameter so that it can be vectorized
+
+    The returned value is the "D" parameter in the ks test...
+    """
+        def kstest(xmin,x=x):
             x = x[x>=xmin]
             n = float(len(x))
             if n == 0: return numpy.inf
@@ -126,6 +133,7 @@ class plfit:
         reasons.
 
         There is also a discrete version implemented in python - it is different from the continous version!
+
         *discrete* [ bool | None ]
             If *discrete* is None, the code will try to determine whether the
             data set is discrete or continous based on the uniqueness of the
@@ -276,6 +284,14 @@ class plfit:
             Pair of values indicating multiplicative factors above and below the
             approximate alpha from the MLE alpha to use when determining the
             "exact" alpha (by directly maximizing the likelihood function)
+        *n_alpha* [ int ]
+            Number of alpha values to use when measuring.  Larger number is more accurate.
+        *approximate* [ bool ]
+            If False, try to "zoom-in" around the MLE alpha and get the exact
+            best alpha value within some range around the approximate best
+        *vebose* [ bool ]
+        *finite* [ bool ]
+            Correction for finite data?
         """
 
         data = self.data

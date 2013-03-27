@@ -51,6 +51,9 @@ class plfit:
 
 
     def alpha_(self,x):
+        """ Create a mappable function alpha to apply to each xmin in a list of xmins.
+        This is essentially the slow version of fplfit/cplfit, though I bet it could
+        be speeded up with a clever use of parellel_map.  Not intended to be used by users."""
         def alpha(xmin,x=x):
             """
             given a sorted data set and a minimum, returns power law MLE fit
@@ -97,11 +100,6 @@ class plfit:
 
         nosmall is on by default; it rejects low s/n points
         can specify xmin to skip xmin estimation
-
-        There are 3 implementations of xmin estimation.  The fortran version is fastest, the C (cython)
-        version is ~10% slower, and the python version is ~3x slower than the fortran version.
-        Also, the cython code suffers ~2% numerical error relative to the fortran and python for unknown
-        reasons.
         """
         x = self.data
         z = sorted(x)
