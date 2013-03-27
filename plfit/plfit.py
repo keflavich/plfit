@@ -78,11 +78,12 @@ class plfit:
         This is essentially the slow version of fplfit/cplfit, though I bet it could
         be speeded up with a clever use of parellel_map.  Not intended to be used by users.
 
-        Docstring for the generated alpha function:
-        given a sorted data set and a minimum, returns power law MLE fit
-        data is passed as a keyword parameter so that it can be vectorized
+        Docstring for the generated alpha function::
 
-        if there is only one element, return alpha=0
+            Given a sorted data set and a minimum, returns power law MLE fit
+            data is passed as a keyword parameter so that it can be vectorized
+
+            If there is only one element, return alpha=0
         """
         def alpha(xmin,x=x):
             gexmin = x>=xmin
@@ -95,15 +96,16 @@ class plfit:
         return alpha
 
     def kstest_(self,x):
-    """
-    Create a mappable function kstest to apply to each xmin in a list of xmins.
+        """
+        Create a mappable function kstest to apply to each xmin in a list of xmins.
 
-    Docstring for the generated kstest function:
-    given a sorted data set and a minimum, returns power law MLE ks-test w/data
-    data is passed as a keyword parameter so that it can be vectorized
+        Docstring for the generated kstest function::
 
-    The returned value is the "D" parameter in the ks test...
-    """
+            Given a sorted data set and a minimum, returns power law MLE ks-test w/data
+            data is passed as a keyword parameter so that it can be vectorized
+
+            The returned value is the "D" parameter in the ks test.
+        """
         def kstest(xmin,x=x):
             x = x[x>=xmin]
             n = float(len(x))
