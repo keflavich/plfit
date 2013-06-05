@@ -81,7 +81,7 @@ if __name__=="__main__":
 
     S = setup(
         name = "plfit",
-        version = "1.0",
+        version = "1.0.1",
         description = "Python implementation of Aaron Clauset's power-law distribution fitter",
         long_description=long_description,
         author = "Adam Ginsburg",
