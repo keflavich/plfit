@@ -90,7 +90,7 @@ if __name__=="__main__":
         download_url="http://code.google.com/p/agpy/source/browse/#svn/trunk/plfit",
         license = "MIT",
         platforms = ["Linux","MacOS X"],
-        packages = ['plfit'],
+        packages = ['plfit','plfit.tests'],
         # obsolete package_dir={'plfit':'.'},
         install_requires = ["numpy","cython"],
         ext_modules = [ ext_cplfit ],

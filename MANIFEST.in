@@ -1,1 +1,5 @@
 include README.rst
+include plfit/c_numpy.pxd 
+include plfit/cplfit.c
+include plfit/cplfit.pyx
+include plfit/tests/*txt

@@ -11,7 +11,7 @@ Installation
 ------------
 
 I've attempted to make the setup.py file work nicely, but it includes some hacks, so if you run into trouble,
-please report it::
+please report it on `github <github.com/keflavich/plfit>`_::
 
     git clone git@github.com:keflavich/plfit.git
     cd plfit
