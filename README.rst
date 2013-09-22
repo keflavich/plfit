@@ -131,3 +131,9 @@ Direction citations to the source are welcome!  The python translation has been 
  * http://adsabs.harvard.edu/abs/2011ApJ...735...51M
  * http://adsabs.harvard.edu/abs/2011ApJ...736..149G
  * http://www.rsc.org/suppdata/CC/c0/c0cc00366b/c0cc00366b.pdf
+
+
+.. image:: https://d2weczhvl823v0.cloudfront.net/keflavich/plfit/trend.png
+   :alt: Bitdeli badge
+   :target: https://bitdeli.com/free
+
