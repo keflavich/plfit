@@ -1,3 +1,5 @@
+
+"""
 # intended to implement a power-law fitting routine as specified in.....
 # http://www.santafe.edu/~aaronc/powerlaws/
 #
@@ -5,7 +7,6 @@
 # of the lowest value at which a power law holds, but that point is 
 # difficult to derive and must be acquired iteratively.
 
-"""
 plfit.py - a python power-law fitter based on code by Aaron Clauset
 http://www.santafe.edu/~aaronc/powerlaws/
 http://arxiv.org/abs/0706.1062 "Power-law distributions in empirical ksvalsa" 
@@ -62,7 +63,7 @@ def plfit_loop(z,zunique=None,argunique=None,nosmall=True):
         for i from xm <= i < lxm:
             denom += log(data[i]/xmin)
         nj=<float>(lxm-xm)
-        a =  nj / denom 
+        a = 1.0 + nj / denom 
         if nosmall and ( ((a-1)/sqrt(nj+1)) >= 0.1 ):
             # 4. For continuous data, PLFIT can return erroneously large estimates of 
             #    alpha when xmin is so large that the number of obs x >= xmin is very 

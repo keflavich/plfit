@@ -91,7 +91,7 @@ class plfit:
             if n < 2:
                 return 0
             x = x[gexmin]
-            a = float(n) / sum(log(x/xmin))
+            a = 1 + float(n) / sum(log(x/xmin))
             return a
         return alpha
 
@@ -139,8 +139,10 @@ class plfit:
         *discrete* [ bool | None ]
             If *discrete* is None, the code will try to determine whether the
             data set is discrete or continous based on the uniqueness of the
-            data.  If *discrete* is True or False, the distcrete or continuous
-            fitter will be used, respectively.
+            data; if your data set is continuous but you have any non-unique
+            data points (e.g., flagged "bad" data), the "automatic"
+            determination will fail.  If *discrete* is True or False, the
+            distcrete or continuous fitter will be used, respectively.
 
         *xmin* [ float / int ]
             If you specify xmin, the fitter will only determine alpha assuming
@@ -148,7 +150,9 @@ class plfit:
             is determining an estimate for xmin and alpha.
 
         *nosmall* [ bool (True) ]
-            When on, the code rejects low s/n points
+            When on, the code rejects low s/n points.  WARNING: This option,
+            which is on by default, may result in different answers than the
+            original Matlab code and the "powerlaw" python package
 
         *finite* [ bool (False) ]
             There is a 'finite-size bias' to the estimator.  The "alpha" the code measures
@@ -179,8 +183,10 @@ class plfit:
         t = time.time()
         if xmin is None:
             if discrete:
-                self.discrete_best_alpha( approximate=discrete_approx,
-                        n_alpha=discrete_n_alpha, verbose=verbose, finite=finite)
+                self.discrete_best_alpha(approximate=discrete_approx,
+                                         n_alpha=discrete_n_alpha,
+                                         verbose=verbose,
+                                         finite=finite)
                 return self._xmin,self._alpha
             elif usefortran and fortranOK:
                 dat,av = fplfit.plfit(z,int(nosmall))
@@ -197,7 +203,7 @@ class plfit:
             elif usecy and cyOK:
                 dat,av = cplfit.plfit_loop(z,nosmall=nosmall,zunique=xmins,argunique=argxmins)
                 goodvals=dat>0
-                sigma = (av-1)/numpy.sqrt(len(z)-argxmins)
+                sigma = (av-1)/numpy.sqrt(len(z)-argxmins+1)
                 dat = dat[goodvals]
                 av = av[goodvals]
                 if not quiet: print "CYTHON plfit executed in %f seconds" % (time.time()-t)
@@ -225,10 +231,17 @@ class plfit:
             self._av = av
             self._xmin_kstest = dat
             self._sigma = sigma
-            xmin  = xmins[argmin(dat)] 
+            # [:-1] to weed out the very last data point; it cannot be correct
+            # (can't have a power law with 1 data point).
+            # However, this should only be done if the ends have not previously
+            # been excluded with nosmall
+            if nosmall:
+                xmin  = xmins[argmin(dat)] 
+            else:
+                xmin  = xmins[argmin(dat[:-1])] 
         z     = z[z>=xmin]
         n     = len(z)
-        alpha = 1 + n / sum( log(z/xmin) )
+        alpha = 1 + n / sum(log(z/xmin))
         if finite:
             alpha = alpha*(n-1.)/n+1./n
         if n < 50 and not finite and not silent:

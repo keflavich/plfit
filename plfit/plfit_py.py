@@ -62,8 +62,10 @@ class plfit:
             x = [i for i in x if i>=xmin]
             n = sum(x)
             divsum = sum([math.log(i/xmin) for i in x])
-            if divsum == 0: return float('inf')
-            a = float(n) / divsum
+            if divsum == 0:
+                return float('inf')
+            # the "1+" here is unimportant because alpha_ is only used for minimization
+            a = 1 + float(n) / divsum
             return a
         return alpha
 
@@ -76,22 +78,22 @@ class plfit:
             The returned value is the "D" parameter in the ks test...
             """
             x = [i for i in x if i>=xmin]
-            n = float(len(x))
+            n = len(x)
             if n == 0: return float('inf')
             divsum = sum([math.log(i/xmin) for i in x])
             if divsum == 0: return float('inf')
             a = float(n) / divsum
-            cx = [float(i)/float(n) for i in xrange(n)]
+            cx = [float(i)/float(n) for i in xrange(int(n))]
             cf = [1-(xmin/i)**a for i in x]
             ks = max([abs(a-b) for a,b in zip(cf,cx)])
             return ks
         return kstest
     
 
-    def plfit(self,nosmall=True,finite=False,quiet=False,silent=False,usefortran=False,usecy=False,
-            xmin=None, verbose=False):
+    def plfit(self,nosmall=True,finite=False,quiet=False,silent=False,
+              xmin=None, verbose=False):
         """
-        A Python implementation of the Matlab code http://www.santafe.edu/~aaronc/powerlaws/plfit.m
+        A pure-Python implementation of the Matlab code http://www.santafe.edu/~aaronc/powerlaws/plfit.m
         from http://www.santafe.edu/~aaronc/powerlaws/
 
         See A. Clauset, C.R. Shalizi, and M.E.J. Newman, "Power-law distributions
@@ -100,16 +102,19 @@ class plfit:
 
         nosmall is on by default; it rejects low s/n points
         can specify xmin to skip xmin estimation
+
+        This is only for continuous distributions; I have not implemented a
+        pure-python discrete distribution fitter
         """
         x = self.data
         z = sorted(x)
         t = time.time()
-        xmins = sorted(set(z))
-        argxmins = [z.index(i) for i in xmins]
-        self._nunique = len(xmins)
+        possible_xmins = sorted(set(z))
+        argxmins = [z.index(i) for i in possible_xmins]
+        self._nunique = len(possible_xmins)
         if xmin is None:
-            av  = map(self.alpha_(z),xmins)
-            dat = map(self.kstest_(z),xmins)
+            av  = map(self.alpha_(z),possible_xmins)
+            dat = map(self.kstest_(z),possible_xmins)
             sigma = [(a-1)/math.sqrt(len(z)-i+1) for a,i in zip(av,argxmins)]
             if nosmall:
                 # test to make sure the number of data points is high enough
@@ -118,7 +123,7 @@ class plfit:
                 if False in goodvals: 
                     nmax = goodvals.index(False)
                     dat = dat[:nmax]
-                    xmins = xmins[:nmax]
+                    possible_xmins = possible_xmins[:nmax]
                     av = av[:nmax]
                 else:
                     print "Not enough data left after flagging - using all positive data."
@@ -126,10 +131,17 @@ class plfit:
             self._av = av
             self._xmin_kstest = dat
             self._sigma = sigma
-            xmin  = xmins[dat.index(min(dat))] 
+            # [:-1] to weed out the very last data point; it cannot be correct
+            # (can't have a power law with 1 data point).
+            # However, this should only be done if the ends have not previously
+            # been excluded with nosmall
+            if nosmall:
+                xmin = possible_xmins[dat.index(min(dat))] 
+            else:
+                xmin = possible_xmins[dat.index(min(dat[:-1]))] 
         z     = [i for i in z if i >= xmin]
         n     = len(z)
-        alpha = 1 + n / sum( [math.log(a/xmin) for a in z] ) 
+        alpha = 1 + n / sum([math.log(a/xmin) for a in z]) 
         if finite:
             alpha = alpha*(n-1.)/n+1./n
         if n == 1 and not silent:
@@ -152,7 +164,7 @@ class plfit:
         #requires another map... Larr = arange(len(unique(x))) * log((av-1)/unique(x)) - av*sum
         self._likelihood = L
         self._xmin = xmin
-        self._xmins = xmins
+        self._xmins = possible_xmins
         self._alpha= alpha
         self._alphaerr = (alpha-1)/math.sqrt(n)
         self._ks = ks  # this ks statistic may not have the same value as min(dat) because of unique()

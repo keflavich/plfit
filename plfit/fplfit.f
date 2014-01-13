@@ -28,7 +28,7 @@ c           skip repeat values (only compute unique values of xmin)
                 lzs = lzs + log(x(j)/xmin)
 200         continue            
             n = j - i
-            av(i) = float(n) / (lzs)
+            av(i) = 1.0 + float(n) / (lzs)
             if (nosmall.gt.0) then
                 if ((av(i)-1.0)/sqrt(float(n+1)) .ge. 0.1) then
 c                   write(*,*) "Exiting nosmall - n=",n
