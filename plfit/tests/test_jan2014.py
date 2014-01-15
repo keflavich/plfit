@@ -9,6 +9,10 @@ Pfor = plfit.plfit(A)
 Pcy = plfit.plfit(A)
 Py = plfit.plfit_py(A)
 
+
+# for comparison
+r_for_nosmall = Pfor.plfit(usefortran=True, verbose=True, quiet=False, discrete=False, nosmall=True)
+
 t0 = time.time()
 r_for = Pfor.plfit(usefortran=True, verbose=True, quiet=False, discrete=False, nosmall=False)
 t1 = time.time()
@@ -19,10 +23,12 @@ t3 = time.time()
 r_npy = Pnpy.plfit(usefortran=False, usecy=False, verbose=True, quiet=False, discrete=False, nosmall=False)
 t4 = time.time()
 
-print r_npy
-print r_ppy
-print r_cy
-print r_for
+print "xmin,alpha for 4 different implementations: "
+print "npy: ",r_npy
+print "ppy: ",r_ppy
+print "for: ",r_cy
+print "cy:  ",r_for
+print "nosmall: ",r_for_nosmall
 print
 
 import powerlaw
@@ -30,7 +36,9 @@ if 'results' not in locals():
     t5 = time.time()
     results = powerlaw.Fit(A[A>0])
     t6 = time.time()
-print t6-t5,"powerlaw: ",results.power_law.alpha, results.power_law.xmin
+
+print "Timing and xmin,alpha for powerlaw & 4 implementations: "
+print t6-t5,"powerlaw: ",results.power_law.xmin, results.power_law.alpha
 print t4-t3,"npy: ",r_npy
 print t3-t2,"ppy: ",r_ppy
 print t2-t1,"for: ",r_cy
@@ -38,12 +46,15 @@ print t1-t0,"cy:  ",r_for
 print
 
 
-print results.power_law.alpha, results.power_law.xmin
+print "Differences between plfit and powerlaw: "
+print "Powerlaw alpha, xmin: ",results.power_law.alpha, results.power_law.xmin
 print "npy: ",[(x1-x2) for x1,x2 in zip(r_npy,(results.power_law.xmin, results.power_law.alpha, ))]
 print "ppy: ",[(x1-x2) for x1,x2 in zip(r_ppy,(results.power_law.xmin, results.power_law.alpha, ))]
 print "for: ",[(x1-x2) for x1,x2 in zip(r_for,(results.power_law.xmin, results.power_law.alpha, ))]
 print "cy:  ",[(x1-x2) for x1,x2 in zip(r_cy ,(results.power_law.xmin, results.power_law.alpha, ))]
 
+
+# Below are some plots used for debugging
 from pylab import *
 
 mpl.rc_file('/Users/adam/.matplotlib/ggplotrc')
