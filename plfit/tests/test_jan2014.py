@@ -6,12 +6,13 @@ m = scipy.io.loadmat('AUD_Ret_1000.mat')
 A = m['A'].squeeze()
 Pnpy = plfit.plfit(A)
 Pfor = plfit.plfit(A)
+Pfor_nosmall = plfit.plfit(A)
 Pcy = plfit.plfit(A)
 Py = plfit.plfit_py(A)
 
 
 # for comparison
-r_for_nosmall = Pfor.plfit(usefortran=True, verbose=True, quiet=False, discrete=False, nosmall=True)
+r_for_nosmall = Pfor_nosmall.plfit(usefortran=True, verbose=True, quiet=False, discrete=False, nosmall=True)
 
 t0 = time.time()
 r_for = Pfor.plfit(usefortran=True, verbose=True, quiet=False, discrete=False, nosmall=False)
@@ -56,17 +57,22 @@ print "cy:  ",[(x1-x2) for x1,x2 in zip(r_cy ,(results.power_law.xmin, results.p
 
 # Below are some plots used for debugging
 from pylab import *
+import os
 
-mpl.rc_file('/Users/adam/.matplotlib/ggplotrc')
+if os.path.exists('/Users/adam/.matplotlib/ggplotrc'):
+    mpl.rc_file('/Users/adam/.matplotlib/ggplotrc')
 
 figure(1)
 clf()
 plot(results.sigmas[np.isfinite(results.sigmas)], label='powerlaw')
 plot(Py._sigma, label='py')
 plot(Pfor._sigma, label='for')
+plot(Pfor_nosmall._sigma, label='for_nosmall')
 plot(Pnpy._sigma, label='npy')
 plot(Pcy._sigma, label='cy')
 gca().set_ylim(0,5)
+ylabel("$\sigma$")
+xlabel("$x_{min}$ index")
 legend(loc='best')
 
 figure(2)
@@ -76,7 +82,12 @@ plot(Py._xmin_kstest, linewidth=3, alpha=0.6, linestyle='--', label='py')
 plot(Pnpy._xmin_kstest, linewidth=3, alpha=0.6, linestyle=':', label='npy')
 plot(Pcy._xmin_kstest, linewidth=3, alpha=0.6, linestyle=':', label='cy')
 plot(Pfor._xmin_kstest, linewidth=3, alpha=0.6, linestyle=':', label='for')
+plot(Pfor_nosmall._xmin_kstest, linewidth=3, alpha=0.6, linestyle='-', label='for_nosmall')
+ylabel("$D_{KS}$")
+xlabel("$x_{min}$ index")
 legend(loc='best')
 
+print "What is the KS distance of the very last value, which in reality is undefined?"
+print "(As of Jan 2014, this value is explicitly excluded)"
 print [(x,locals()[x]._xmin_kstest[-1]) for x in "Py,Pnpy,Pcy,Pfor".split(',')]
 
