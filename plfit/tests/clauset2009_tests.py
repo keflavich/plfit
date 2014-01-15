@@ -9,6 +9,7 @@ earthquakes = readcol('earthquakes.txt')
 melville = readcol('melville.txt')
 solarflares = readcol('solarflares.txt')
 terrorism = readcol('terrorism.txt')
+fires = readcol('fires.txt')
 
 #print "quakes 0.00 -7.14 0.00 11.6 0.00 -7.09 0.00 -24.4 0.00 with cut-oﬀ"
 #earthquakeP = plfit.plfit(earthquakes)
