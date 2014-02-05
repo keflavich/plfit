@@ -15,7 +15,7 @@ import Cython.Compiler.Main
 build_src.Pyrex = Cython
 build_src.have_pyrex = True
 from Cython.Distutils import build_ext
-import Cython
+from Cython.Build import cythonize
 import numpy
 import os
 import shutil
@@ -46,14 +46,16 @@ except AttributeError:
     numpy_include_dirs = numpy.get_include()
 
 
-dirs = list(numpy_include_dirs)
-dirs.extend(Cython.__path__)
+dirs = list(Cython.__path__)
+dirs.extend(numpy_include_dirs)
 dirs.append('.')
+print dirs
 
-ext_cplfit = Extension("plfit/cplfit",
+ext_cplfit = Extension("plfit",
                        ["plfit/cplfit.pyx"],
                        include_dirs=dirs,
                        extra_compile_args=['-O3'])
+#ext_cplfit = cythonize('plfit/cplfit.pyx', include_path=dirs, extra_compile_args=['-O3'])[0]
 
 #ext_fplfit = numpyExtension(name="fplfit",
 #                    sources=["fplfit.f"])
@@ -91,7 +93,7 @@ if __name__=="__main__":
         packages=['plfit','plfit.tests'],
         # obsolete package_dir={'plfit':'.'},
         install_requires=["numpy","cython"],
-        ext_modules=[ext_cplfit],
+        ext_modules=cythonize([ext_cplfit]),
         cmdclass={'build_ext': build_ext}
     )
 
