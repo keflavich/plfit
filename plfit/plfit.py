@@ -95,7 +95,7 @@ class plfit:
             return a
         return alpha
 
-    def kstest_(self,x):
+    def kstest_(self,x,unique=False,finite=False):
         """
         Create a mappable function kstest to apply to each xmin in a list of xmins.
 
@@ -107,12 +107,16 @@ class plfit:
             The returned value is the "D" parameter in the ks test.
         """
         def kstest(xmin,x=x):
+            if unique:
+                x = numpy.unique(x)
             x = x[x>=xmin]
-            n = float(len(x))
+            n = len(x)
             if n == 0: return numpy.inf
-            a = float(n) / sum(log(x/xmin))
+            a = 1+float(n) / sum(log(x/xmin))
+            if finite:
+                a = a*(n-1.)/n+1./n
             cx = numpy.arange(n,dtype='float')/float(n)
-            cf = 1-(xmin/x)**a
+            cf = 1-(xmin/x)**(a-1)
             ks = max(abs(cf-cx))
             return ks
         return kstest
