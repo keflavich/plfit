@@ -200,12 +200,16 @@ class plfit:
                 av = av[goodvals]
                 if nosmall:
                     # data, av a;ready treated for this.  sigma, xmins not
+                    # find first point with sigma >= 0.1
                     nmax = argmin(sigma<0.1)
                     xmins = xmins[:nmax]
+                    if xmins.shape != dat.shape:
+                        raise ValueError("Shape mismatch")
                     sigma = sigma[:nmax]
                 if not quiet: print "FORTRAN plfit executed in %f seconds" % (time.time()-t)
             elif usecy and cyOK:
-                dat,av = cplfit.plfit_loop(z,nosmall=nosmall,zunique=xmins,argunique=argxmins)
+                dat,av = cplfit.plfit_loop(z, nosmall=nosmall, zunique=xmins,
+                                           argunique=argxmins)
                 goodvals=dat>0
                 sigma = (av-1)/numpy.sqrt(len(z)-argxmins+1)
                 dat = dat[goodvals]
@@ -230,8 +234,8 @@ class plfit:
                             print "Not enough data left after flagging - using all positive data."
             if not quiet: 
                 print "PYTHON plfit executed in %f seconds" % (time.time()-t)
-                if usefortran: print "fortran fplfit did not load"
-                if usecy: print "cython cplfit did not load"
+                if usefortran and not fortranOK: print "fortran fplfit did not load"
+                if usecy and not cyOK: print "cython cplfit did not load"
             self._av = av
             self._xmin_kstest = dat
             self._sigma = sigma
