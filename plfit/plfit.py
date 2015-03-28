@@ -296,8 +296,12 @@ class plfit(object):
             # sanity check
             n = np.count_nonzero(z>=xmin)
             alpha = 1. + float(n)/sum(log(z[z>=xmin]/xmin))
-            np.testing.assert_almost_equal(alpha, alpha_values[best_ks_index],
-                                           decimal=6)
+            try:
+                np.testing.assert_almost_equal(alpha, alpha_values[best_ks_index],
+                                               decimal=5)
+            except AssertionError:
+                raise AssertionError("The alpha value computed was not self-"
+                                     "consistent.  This should not happen.")
 
         z     = z[z>=xmin]
         n     = len(z)
@@ -442,8 +446,8 @@ class plfit(object):
         powerlaw or a different function.
         """
         
-        pylab.plot(1+self._alpha_values,self._xmin_kstest,'.')
-        pylab.errorbar(self._alpha,[self._ks],xerr=self._alphaerr,fmt='+')
+        pylab.plot(self._alpha_values, self._xmin_kstest, '.')
+        pylab.errorbar(self._alpha, self._ks, xerr=self._alphaerr, fmt='+')
 
         ax=pylab.gca()
         if autozoom:
@@ -718,32 +722,65 @@ def plfit_lsq(x,y):
     A = exp(a)
     return A,b
 
-def plexp(x,xm=1,a=2.5):
+def plexp_cdf(x,xmin=1,alpha=2.5, pl_only=False, exp_only=False):
     """
     CDF(x) for the piecewise distribution exponential x<xmin, powerlaw x>=xmin
     This is the CDF version of the distributions drawn in fig 3.4a of Clauset et al.
+    The constant "C" normalizes the PDF
     """
 
-    C = 1/(-xm/(1 - a) - xm/a + exp(a)*xm/a)
-    Ppl = lambda(X): 1+C*(xm/(1-a)*(X/xm)**(1-a))
-    Pexp = lambda(X): C*xm/a*exp(a)-C*(xm/a)*exp(-a*(X/xm-1))
+    x = np.array(x)
+    C = 1/(-xmin/(1 - alpha) - xmin/alpha + exp(alpha)*xmin/alpha)
+    Ppl = lambda(X): 1+C*(xmin/(1-alpha)*(X/xmin)**(1-alpha))
+    Pexp = lambda(X): C*xmin/alpha*exp(alpha)-C*(xmin/alpha)*exp(-alpha*(X/xmin-1))
+
+    if exp_only:
+        return Pexp(x)
+    elif pl_only:
+        return Ppl(x)
+
     d=Ppl(x)
-    d[x<xm]=Pexp(x)
+    d[x<xmin]=Pexp(x)[x<xmin]
     return d
 
-def plexp_inv(P,xm,a):
+def plexp_pdf(x,xmin=1,alpha=2.5):
+    x = np.array(x)
+    C = 1/(-xmin/(1 - alpha) - xmin/alpha + exp(alpha)*xmin/alpha)
+    Ppl = lambda(X): C*(X/xmin)**(-alpha)
+    Pexp = lambda(X): C*exp(-alpha*(X/xmin-1))
+    d=Ppl(x)
+    d[x<xmin] = Pexp(x)[x<xmin]
+    return d
+
+# WRONG
+# def plexp_inv(P,xmin,alpha):
+#     """
+#     Inverse CDF for a piecewise PDF as defined in eqn. 3.10
+#     of Clauset et al.  
+#     """
+# 
+#     C = 1/(-xmin/(1 - alpha) - xmin/alpha + exp(alpha)*xmin/alpha)
+#     Pxm = -C*(xmin/(1-alpha))
+#     x = P*0
+#     x[P>=Pxm] = xmin*( (P[P>=Pxm]-1) * (1-alpha)/(C*xmin) )**(1/(1-alpha)) # powerlaw
+#     x[P<Pxm] = (log( (C*xmin/alpha*exp(alpha)-P[P<Pxm])/(C*xmin/alpha) ) - alpha) * (-xmin/alpha) # exp
+# 
+#     return x
+
+def plexp_inv(P, xmin, alpha, guess=1.):
     """
     Inverse CDF for a piecewise PDF as defined in eqn. 3.10
     of Clauset et al.  
+
+    (previous version was incorrect and lead to weird discontinuities in the
+    distribution function)
     """
-
-    C = 1/(-xm/(1 - a) - xm/a + exp(a)*xm/a)
-    Pxm = 1+C*(xm/(1-a))
-    x = P*0
-    x[P>=Pxm] = xm*( (P[P>=Pxm]-1) * (1-a)/(C*xm) )**(1/(1-a)) # powerlaw
-    x[P<Pxm] = (log( (C*xm/a*exp(a)-P[P<Pxm])/(C*xm/a) ) - a) * (-xm/a) # exp
-
-    return x
+    equation = lambda x,prob: plexp_cdf(x, xmin, alpha)-prob
+    # http://stackoverflow.com/questions/19840425/scipy-optimize-faster-root-finding-over-2d-grid
+    def solver(y, x0=guess):
+        return scipy.optimize.fsolve(equation, guess, args=(y,))
+    f = np.vectorize(solver)
+    return f(P)
 
 def pl_inv(P,xm,a):
     """ 
