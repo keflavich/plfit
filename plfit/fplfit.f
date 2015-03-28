@@ -23,12 +23,16 @@ c           skip repeat values (only compute unique values of xmin)
                 goto 100
             endif
             xmin = x(i)
+
+c           a = 1 + float(n) / sum(log(x/xmin))
+c           lzs = sum(log(x/xmin))            
             lzs = 0.0
             do 200 j=i,lx
                 lzs = lzs + log(x(j)/xmin)
 200         continue            
             n = j - i
             av(i) = 1.0 + float(n) / (lzs)
+
             if (nosmall.gt.0) then
                 if ((av(i)-1.0)/sqrt(float(n+1)) .ge. 0.1) then
 c                   write(*,*) "Exiting nosmall - n=",n
@@ -36,13 +40,17 @@ c           write(*,*) "Debug: lx=",lx,"n=",n,"ijk=",i,j,k,av(i),ksa(i)
                   return
                 endif
             endif
+
+c           ks = max(abs(cf-cx))
             ksp = 0
 c           if (mod(i,100).eq.0) write(*,*) "i=",i," a=",a,"n=",
 c    &       n,"lzs=",lzs
             nk = lx - i
+c           nk = number of points between xmin and the largest value
+c           k = the index of xmin + k            
             do 300 k=0,nk
                 cx = float(k) / float(nk+1)
-                cf = 1.0 - ( (xmin/x(k+i))**av(i) )
+                cf = 1.0 - ( (xmin/x(k+i))**(av(i)-1) )
                 ks = abs(cf-cx)
                 if (ks.gt.ksp)  ksp = ks 
 300         continue            

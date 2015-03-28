@@ -1,23 +1,54 @@
 # coding: utf-8
-from agpy import readcol
 import plfit
+import os
 from pylab import *
+if not os.path.isdir('figures'):
+    os.mkdir('figures')
 
-blackouts = readcol('blackouts.txt')
-cities = readcol('cities.txt')
-earthquakes = readcol('earthquakes.txt')
-melville = readcol('melville.txt')
-solarflares = readcol('solarflares.txt')
-terrorism = readcol('terrorism.txt')
-fires = readcol('fires.txt')
+blackouts = np.loadtxt('blackouts.txt', dtype='int')
+cities = np.loadtxt('cities.txt', dtype='int')
+earthquakes = np.loadtxt('earthquakes.txt')
+melville = np.loadtxt('melville.txt')
+solarflares = np.loadtxt('solarflares.txt', dtype='int')
+terrorism = np.loadtxt('terrorism.txt')
+fires = np.loadtxt('fires.txt')
 
-#print "quakes 0.00 -7.14 0.00 11.6 0.00 -7.09 0.00 -24.4 0.00 with cut-oﬀ"
-#earthquakeP = plfit.plfit(earthquakes)
+## Solarflares are discrete but well-approximated (I hope...) by continuous...
+#plf = plfit.plfit(solarflares.ravel(), discrete=False, usefortran=True, verbose=True, quiet=False)
+#plc = plfit.plfit(solarflares.ravel(), discrete=False, usecy=True, verbose=True, quiet=False)
+#pl = plfit.plfit(solarflares.ravel(),  discrete=False, usefortran=False, verbose=True, quiet=False)
+#print "Solarflares (Clauset): n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (19447,9.00,77.83,8009,52.46,2.37,0.08,580,0.76)
+#for ppp in (pl,plf,plc):
+#    print "Solarflares (me)     : n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (ppp.data.shape[0], ppp.data.mean(), ppp.data.std(), ppp.data.max(), ppp._xmin, ppp._alpha, ppp._alphaerr, ppp._ngtx, ppp._ks_prob)
+#    np.testing.assert_almost_equal(ppp._xmin, 323, 2)
+#    np.testing.assert_almost_equal(ppp._alpha, 1.79, 2)
+#    np.testing.assert_almost_equal(ppp._alphaerr, 0.02, 2)
+#    assert ppp._ngtx == 1711
 
 
-pl = plfit.plfit(cities.ravel() / 1e3, usefortran=True, verbose=True)
-print "Cities (me)     : n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (pl.data.shape[0], pl.data.mean(), pl.data.std(), pl.data.max(), pl._xmin, pl._alpha, pl._alphaerr, pl._ngtx, pl._ks_prob)
+# Earthquakes are a BAD FIT in the original manuscript
+#plf = plfit.plfit(earthquakes.ravel(), nosmall=True, usefortran=True, verbose=True, quiet=False)
+#plc = plfit.plfit(earthquakes.ravel(), nosmall=True, usecy=True, verbose=True, quiet=False)
+#pl = plfit.plfit(earthquakes.ravel(),  nosmall=True, usefortran=False, verbose=True, quiet=False)
+#print "Earthquakes (Clauset): n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (19447,9.00,77.83,8009,52.46,2.37,0.08,580,0.76)
+#for ppp in (pl,plf,plc):
+#    print "Earthquakes (me)     : n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (ppp.data.shape[0], ppp.data.mean(), ppp.data.std(), ppp.data.max(), ppp._xmin, ppp._alpha, ppp._alphaerr, ppp._ngtx, ppp._ks_prob)
+#    np.testing.assert_almost_equal(ppp._xmin, 0.794, 2)
+#    np.testing.assert_almost_equal(ppp._alpha, 1.64, 2)
+#    np.testing.assert_almost_equal(ppp._alphaerr, 0.04, 2)
+#    assert ppp._ngtx == 11697
+
+
+plf = plfit.plfit(cities.ravel() / 1e3, usefortran=True, verbose=True, quiet=False)
+plc = plfit.plfit(cities.ravel() / 1e3, usecy=True, verbose=True, quiet=False)
+pl = plfit.plfit(cities.ravel() / 1e3, usefortran=False, verbose=True, quiet=False)
 print "Cities (Clauset): n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (19447,9.00,77.83,8009,52.46,2.37,0.08,580,0.76)
+for ppp in (pl,plf,plc):
+    print "Cities (me)     : n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (ppp.data.shape[0], ppp.data.mean(), ppp.data.std(), ppp.data.max(), ppp._xmin, ppp._alpha, ppp._alphaerr, ppp._ngtx, ppp._ks_prob)
+    np.testing.assert_almost_equal(ppp._xmin, 52.46, 2)
+    np.testing.assert_almost_equal(ppp._alpha, 2.37, 2)
+    np.testing.assert_almost_equal(ppp._alphaerr, 0.08, 2)
+    assert ppp._ngtx == 580
 figure(1)
 clf()
 title("Cities")
@@ -35,7 +66,7 @@ title("Cities")
 pl.plotcdf()
 savefig("figures/cities_cdf.png")
 
-pl = plfit.plfit(melville.ravel(), verbose=True)
+pl = plfit.plfit(melville.ravel(), verbose=True, quiet=False)
 p,sims = pl.test_pl(usefortran=True, niter=100)
 print "Melville (me)     : n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (pl.data.shape[0], pl.data.mean(), pl.data.std(), pl.data.max(), pl._xmin, pl._alpha, pl._alphaerr, pl._ngtx, p)
 print "Melville (Clauset): n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (18855,11.14,148.33,14086,7,1.95,0.02,2958,0.49)
@@ -59,10 +90,17 @@ pl.plotcdf()
 savefig("figures/Melville_cdf.png")
 
 
-pl = plfit.plfit(solarflares.ravel(), verbose=True)
+pl = plfit.plfit(solarflares.ravel(), verbose=True, quiet=False)
+plf = plfit.plfit(solarflares.ravel(), verbose=True, quiet=False, usefortran=True)
+plc = plfit.plfit(solarflares.ravel(), verbose=True, quiet=False, usecy=True)
 p,sims = pl.test_pl(usefortran=True, niter=100)
 print "Solarflares (me)     : n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (pl.data.shape[0], pl.data.mean(), pl.data.std(), pl.data.max(), pl._xmin, pl._alpha, pl._alphaerr, pl._ngtx, p)
 print "Solarflares (Clauset): n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (12773, 689.41, 6520.59, 231300, 323, 1.79, 0.02, 1711, 1.00)
+for ppp in (pl,plf,plc):
+    np.testing.assert_almost_equal(ppp._xmin, 323, 1)
+    np.testing.assert_almost_equal(ppp._alpha, 1.79, 2)
+    np.testing.assert_almost_equal(ppp._alphaerr, 0.02, 2)
+    assert ppp._ngtx == 1711
 figure(5)
 clf()
 title("Solar Flares")
@@ -81,7 +119,9 @@ pl.plotcdf()
 savefig("figures/SolarFlares_cdf.png")
 
 
-pl = plfit.plfit(terrorism.ravel(), verbose=True)
+pl = plfit.plfit(terrorism.ravel(), verbose=True, quiet=False)
+plf = plfit.plfit(terrorism.ravel(), verbose=True, quiet=False, usefortran=True)
+plc = plfit.plfit(terrorism.ravel(), verbose=True, quiet=False, usecy=True)
 p,sims = pl.test_pl(usefortran=True, niter=100, nosmall=False)
 print "Terrorism (me)     : n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (pl.data.shape[0], pl.data.mean(), pl.data.std(), pl.data.max(), pl._xmin, pl._alpha, pl._alphaerr, pl._ngtx, p)
 print "Terrorism (Clauset): n:%10i mean,std,max: %8.2f,%8.2f,%8.2f xmin: %8.2f alpha: %8.2f (%8.2f) ntail: %10i p: %5.2f" % (9101, 4.35, 31.58, 2749, 12, 2.4, 0.2, 547, 0.68)

@@ -38,7 +38,10 @@ cdef extern from "math.h":
     float pow(float x,float y)
 
 @cython.boundscheck(False)
-def plfit_loop(z,zunique=None,argunique=None,nosmall=True):
+def plfit_loop(z,
+               zunique=None,
+               argunique=None,
+               nosmall=True):
     """
     The internal loop of plfit.  Useful because it can
     be wrapped into plfit.py for direct comparison
@@ -49,22 +52,22 @@ def plfit_loop(z,zunique=None,argunique=None,nosmall=True):
     cdef int lxm = len(z)
     cdef int nu = len(zunique)
     cdef cnp.ndarray[DTYPE_t,ndim=1,mode='c'] ksvals = numpy.zeros(nu) 
-    cdef cnp.ndarray[DTYPE_t,ndim=1,mode='c'] av     = numpy.zeros(nu)
+    cdef cnp.ndarray[DTYPE_t,ndim=1,mode='c'] alpha_values = numpy.zeros(nu)
     cdef cnp.ndarray[DTYPE_t,ndim=1,mode='c'] data   = numpy.sort(z)
     cdef cnp.ndarray[DTYPE_t,ndim=1,mode='c'] czunique = zunique
-    cdef cnp.ndarray[DTYPE_t,ndim=1,mode='c'] cargunique = argunique.astype('float')
     cdef float cx,cf,val,a,xmin,denom,nj,nk
-    cdef int xm,i,iu
+    cdef int xm,ii,iu
     for iu from 0 <= iu < nu:
         xm = <int>(argunique[iu])
         xmin = czunique[iu]
         # estimate alpha using direct MLE
+        # alpha = 1. + float(n)/sum(log(z[z>=xmin]/xmin))
         denom = 0
         for i from xm <= i < lxm:
             denom += log(data[i]/xmin)
-        nj=<float>(lxm-xm)
-        a = 1.0 + nj / denom 
-        if nosmall and ( ((a-1)/sqrt(nj+1)) >= 0.1 ):
+        n_gt_xmin = <float>(lxm-xm)
+        alpha = 1.0 + n_gt_xmin / denom 
+        if nosmall and ( ((alpha-1)/sqrt(n_gt_xmin+1)) >= 0.1 ):
             # 4. For continuous data, PLFIT can return erroneously large estimates of 
             #    alpha when xmin is so large that the number of obs x >= xmin is very 
             #    small. To prevent this, we can truncate the search over xmin values 
@@ -72,11 +75,11 @@ def plfit_loop(z,zunique=None,argunique=None,nosmall=True):
             #av = av[:xm] # this should only be called once
             #ksvals = ksvals[:xm] # this should only be called once
             break
-        av[iu] = a
-        for i from xm <= i < lxm:
+        alpha_values[iu] = alpha
+        for ii from xm <= ii < lxm:
             # compute KS statistic
-            cx   = <float>(i-xm)/(nj)  #data; cheap float conversion?
-            cf   = 1.0-pow((xmin/data[i]),a)  # fitted
+            cx   = <float>(ii-xm)/(n_gt_xmin)  #data; cheap float conversion?
+            cf   = 1.0-pow((xmin/data[ii]),alpha-1)  # fitted
             val = (cf-cx)
             if val < 0:  # math.h's abs() does not work
                 val *= -1.0 
@@ -84,4 +87,4 @@ def plfit_loop(z,zunique=None,argunique=None,nosmall=True):
                 ksvals[iu] = val
 #        print a,nj,denom,iu,xm,(a-1)/sqrt(nj),ksvals[xm],val
     
-    return ksvals,av
+    return ksvals,alpha_values

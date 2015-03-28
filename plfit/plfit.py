@@ -26,6 +26,7 @@ Example very simple use::
 """
 
 import numpy 
+import numpy as np
 import time
 import pylab
 try:
@@ -48,7 +49,89 @@ except ImportError:
     scipyOK = False
     print "scipy didn't import.  Can't compute certain basic statistics."
 
-class plfit:
+
+def alpha_gen(x):
+    """ Create a mappable function alpha to apply to each xmin in a list of xmins.
+    This is essentially the slow version of fplfit/cplfit, though I bet it could
+    be speeded up with a clever use of parellel_map.  Not intended to be used by users.
+
+    Docstring for the generated alpha function::
+
+        Given a sorted data set and a minimum, returns power law MLE fit
+        data is passed as a keyword parameter so that it can be vectorized
+
+        If there is only one element, return alpha=0
+    """
+    def alpha_(xmin,x=x):
+        """
+        Given a sorted data set and a minimum, returns power law MLE fit
+        data is passed as a keyword parameter so that it can be vectorized
+
+        If there is only one element, return alpha=0
+        """
+        gexmin = x>=xmin
+        n = np.count_nonzero(gexmin)
+        if n < 2:
+            return 0
+        x = x[gexmin]
+        a = 1 + float(n) / sum(log(x/xmin))
+        return a
+    return alpha_
+
+def kstest_gen(x,unique=False,finite=False):
+    """
+    Create a mappable function kstest to apply to each xmin in a list of xmins.
+
+    Parameters
+    ----------
+    unique : bool
+        If set, will filter the input array 'x' to its unique elements.
+        Normally, this would be done at an earlier step, so `unique`
+        can be disabled for performance improvement
+    finite : bool
+        Apply the finite-sample correction from Clauset et al 2007...
+        Not clear yet which equation this comes from.
+
+    Docstring for the generated kstest function::
+
+        Given a sorted data set and a minimum, returns power law MLE ks-test
+        against the data
+
+        data is passed as a keyword parameter so that it can be vectorized
+
+        The returned value is the "D" parameter in the ks test.
+    """
+    def kstest_(xmin,x=x):
+        """
+        Given a sorted data set and a minimum, returns power law MLE ks-test
+        against the data
+
+        data is passed as a keyword parameter so that it can be vectorized
+
+        The returned value is the "D" parameter in the ks test.
+        """
+        if unique:
+            x = np.unique(x)
+        x = x[x>=xmin]
+        n = len(x)
+        if n == 0: return np.inf
+        a = 1+float(n) / sum(log(x/xmin))
+        if finite:
+            a = a*(n-1.)/n+1./n
+        cx = np.arange(n,dtype='float')/float(n)
+        cf = 1-(xmin/x)**(a-1)
+        ks = max(abs(cf-cx))
+        return ks
+    return kstest_
+
+def sigma(alpha, n):
+    """
+    Clauset et al 2007 equation 3.2:
+        sigma = (alpha-1)/sqrt(n)
+    """
+    return (alpha-1.) / n**0.5
+
+class plfit(object):
     """
     A Python implementation of the Matlab code `http://www.santafe.edu/~aaronc/powerlaws/plfit.m`_
     from `http://www.santafe.edu/~aaronc/powerlaws/`_.
@@ -65,61 +148,12 @@ class plfit:
         Initializes and fits the power law.  Can pass "quiet" to turn off 
         output (except for warnings; "silent" turns off warnings)
         """
-        x = numpy.array(x) # make sure x is an array, otherwise the next step fails 
+        x = np.array(x) # make sure x is an array, otherwise the next step fails 
         if (x<0).sum() > 0:
             print "Removed %i negative points" % ((x<0).sum())
             x = x[x>0]
         self.data = x
         self.plfit(**kwargs)
-
-
-    def alpha_(self,x):
-        """ Create a mappable function alpha to apply to each xmin in a list of xmins.
-        This is essentially the slow version of fplfit/cplfit, though I bet it could
-        be speeded up with a clever use of parellel_map.  Not intended to be used by users.
-
-        Docstring for the generated alpha function::
-
-            Given a sorted data set and a minimum, returns power law MLE fit
-            data is passed as a keyword parameter so that it can be vectorized
-
-            If there is only one element, return alpha=0
-        """
-        def alpha(xmin,x=x):
-            gexmin = x>=xmin
-            n = gexmin.sum()
-            if n < 2:
-                return 0
-            x = x[gexmin]
-            a = 1 + float(n) / sum(log(x/xmin))
-            return a
-        return alpha
-
-    def kstest_(self,x,unique=False,finite=False):
-        """
-        Create a mappable function kstest to apply to each xmin in a list of xmins.
-
-        Docstring for the generated kstest function::
-
-            Given a sorted data set and a minimum, returns power law MLE ks-test w/data
-            data is passed as a keyword parameter so that it can be vectorized
-
-            The returned value is the "D" parameter in the ks test.
-        """
-        def kstest(xmin,x=x):
-            if unique:
-                x = numpy.unique(x)
-            x = x[x>=xmin]
-            n = len(x)
-            if n == 0: return numpy.inf
-            a = 1+float(n) / sum(log(x/xmin))
-            if finite:
-                a = a*(n-1.)/n+1./n
-            cx = numpy.arange(n,dtype='float')/float(n)
-            cf = 1-(xmin/x)**(a-1)
-            ks = max(abs(cf-cx))
-            return ks
-        return kstest
     
 
     def plfit(self, nosmall=True, finite=False, quiet=False, silent=False,
@@ -172,16 +206,27 @@ class plfit:
             If True, will print NO messages
         """
         x = self.data
-        z = numpy.sort(x)
-        t = time.time()
-        xmins,argxmins = numpy.unique(z,return_index=True)#[:-1]
+        if any(x < 0):
+            raise ValueError("Power law distributions are only valid for "
+                             "positive data.  Remove negative values before "
+                             "fitting.")
+        z = np.sort(x)
+
+        # xmins = the unique values of x that can be used as the threshold for
+        # the power law fit
+        # argxmins = the index of each of these possible thresholds
+        xmins,argxmins = np.unique(z,return_index=True)
         self._nunique = len(xmins)
         
         if self._nunique == len(x) and discrete is None:
-            if verbose: print "Using CONTINUOUS fitter"
+            if verbose:
+                print("Using CONTINUOUS fitter because there are no repeated "
+                      "values.")
             discrete = False
         elif self._nunique < len(x) and discrete is None:
-            if verbose: print "Using DISCRETE fitter"
+            if verbose:
+                print("Using DISCRETE fitter because there are repeated "
+                      "values.")
             discrete = True
 
         t = time.time()
@@ -193,78 +238,92 @@ class plfit:
                                          finite=finite)
                 return self._xmin,self._alpha
             elif usefortran and fortranOK:
-                dat,av = fplfit.plfit(z,int(nosmall))
-                goodvals=dat>0
-                sigma = ((av-1)/numpy.sqrt(len(z)-numpy.arange(len(z))))[argxmins]
-                dat = dat[goodvals]
-                av = av[goodvals]
-                if nosmall:
-                    # data, av a;ready treated for this.  sigma, xmins not
-                    # find first point with sigma >= 0.1
-                    nmax = argmin(sigma<0.1)
-                    xmins = xmins[:nmax]
-                    if xmins.shape != dat.shape:
-                        raise ValueError("Shape mismatch")
-                    sigma = sigma[:nmax]
-                if not quiet: print "FORTRAN plfit executed in %f seconds" % (time.time()-t)
+                kstest_values,alpha_values = fplfit.plfit(z, 0)
+                if not quiet:
+                    print("FORTRAN plfit executed in %f seconds" % (time.time()-t))
             elif usecy and cyOK:
-                dat,av = cplfit.plfit_loop(z, nosmall=nosmall, zunique=xmins,
-                                           argunique=argxmins)
-                goodvals=dat>0
-                sigma = (av-1)/numpy.sqrt(len(z)-argxmins+1)
-                dat = dat[goodvals]
-                av = av[goodvals]
-                if not quiet: print "CYTHON plfit executed in %f seconds" % (time.time()-t)
+                kstest_values,alpha_values = cplfit.plfit_loop(z,
+                                                               nosmall=False,
+                                                               zunique=xmins,
+                                                               argunique=argxmins)
+                if not quiet:
+                    print("CYTHON plfit executed in %f seconds" % (time.time()-t))
             else:
-                av  = numpy.asarray( map(self.alpha_(z),xmins) ,dtype='float')
-                dat = numpy.asarray( map(self.kstest_(z),xmins),dtype='float')
-                sigma = (av-1)/numpy.sqrt(len(z)-argxmins+1)
-                if nosmall:
-                    # test to make sure the number of data points is high enough
-                    # to provide a reasonable s/n on the computed alpha
-                    goodvals = sigma<0.1
-                    nmax = argmin(goodvals)
-                    if nmax > 0:
-                        dat = dat[:nmax]
-                        xmins = xmins[:nmax]
-                        av = av[:nmax]
-                        sigma = sigma[:nmax]
-                    else:
-                        if not silent: 
-                            print "Not enough data left after flagging - using all positive data."
+                # python (numpy) version
+                f_alpha = alpha_gen(z)
+                f_kstest = kstest_gen(z)
+                alpha_values = np.asarray(map(f_alpha,xmins),
+                                             dtype='float')
+                kstest_values = np.asarray(map(f_kstest,xmins),
+                                              dtype='float')
+                if not quiet:
+                    print("PYTHON plfit executed in %f seconds" % (time.time()-t))
+
             if not quiet: 
-                print "PYTHON plfit executed in %f seconds" % (time.time()-t)
-                if usefortran and not fortranOK: print "fortran fplfit did not load"
-                if usecy and not cyOK: print "cython cplfit did not load"
-            self._av = av
-            self._xmin_kstest = dat
-            self._sigma = sigma
-            # [:-1] to weed out the very last data point; it cannot be correct
-            # (can't have a power law with 1 data point).
-            # However, this should only be done if the ends have not previously
-            # been excluded with nosmall
+                if usefortran and not fortranOK:
+                    raise ImportError("fortran fplfit did not load")
+                if usecy and not cyOK: 
+                    raise ImportError("cython cplfit did not load")
+
+            # For each alpha, the number of included data points is
+            # total data length - first index of xmin
+            # No +1 is needed: xmin is included.
+            sigma = (alpha_values-1)/np.sqrt(len(z)-argxmins)
+
             if nosmall:
-                xmin  = xmins[argmin(dat)] 
+                # test to make sure the number of data points is high enough
+                # to provide a reasonable s/n on the computed alpha
+                goodvals = sigma<0.1
+                nmax = argmin(goodvals)
+                if nmax <= 0:
+                    nmax = len(xmins) - 1
+                    if not silent: 
+                        print("Not enough data left after flagging "
+                              "low S/N points.  "
+                              "Using all data.")
             else:
-                xmin  = xmins[argmin(dat[:-1])] 
+                # -1 to weed out the very last data point; it cannot be correct
+                # (can't have a power law with 1 data point).
+                nmax = len(xmins)-1
+
+            best_ks_index = argmin(kstest_values[:nmax])
+            xmin  = xmins[best_ks_index] 
+
+            self._alpha_values = alpha_values
+            self._xmin_kstest = kstest_values
+            self._sigma = sigma
+
+            # sanity check
+            n = np.count_nonzero(z>=xmin)
+            alpha = 1. + float(n)/sum(log(z[z>=xmin]/xmin))
+            np.testing.assert_almost_equal(alpha, alpha_values[best_ks_index],
+                                           decimal=6)
+
         z     = z[z>=xmin]
         n     = len(z)
-        alpha = 1 + n / sum(log(z/xmin))
+        alpha = 1. + float(n) / sum(log(z/xmin))
         if finite:
             alpha = alpha*(n-1.)/n+1./n
         if n < 50 and not finite and not silent:
-            print '(PLFIT) Warning: finite-size bias may be present. n=%i' % n
-        ks = max(abs( numpy.arange(n)/float(n) - (1-(xmin/z)**(alpha-1)) ))
-        # Parallels Eqn 3.5 in Clauset et al 2009, but zeta(alpha, xmin) = (alpha-1)/xmin.  Really is Eqn B3 in paper.
+            print('(PLFIT) Warning: finite-size bias may be present. n=%i' % n)
+
+        ks = max(abs( np.arange(n)/float(n) - (1-(xmin/z)**(alpha-1)) ))
+        # Parallels Eqn 3.5 in Clauset et al 2009, but zeta(alpha, xmin) =
+        # (alpha-1)/xmin.  Really is Eqn B3 in paper.
         L = n*log((alpha-1)/xmin) - alpha*sum(log(z/xmin))
-        #requires another map... Larr = arange(len(unique(x))) * log((av-1)/unique(x)) - av*sum
+        #requires another map... Larr = arange(len(unique(x))) * log((alpha_values-1)/unique(x)) - alpha_values*sum
         self._likelihood = L
         self._xmin = xmin
         self._xmins = xmins
         self._alpha= alpha
-        self._alphaerr = (alpha-1)/numpy.sqrt(n)
-        self._ks = ks  # this ks statistic may not have the same value as min(dat) because of unique()
-        if scipyOK: self._ks_prob = scipy.stats.kstwobign.sf(ks*numpy.sqrt(n))
+        self._alphaerr = (alpha-1)/np.sqrt(n)
+
+        # this ks statistic may not have the same value as min(dat) because of unique()
+        self._ks = ks
+
+        if scipyOK:
+            self._ks_prob = scipy.stats.kstwobign.sf(ks*np.sqrt(n))
+
         self._ngtx = n
         if n == 1:
             if not silent:
@@ -276,7 +335,7 @@ class plfit:
             self._ks_prob = 0
             self._xmin = xmin
             return xmin,0
-        if numpy.isnan(L) or numpy.isnan(xmin) or numpy.isnan(alpha):
+        if np.isnan(L) or np.isnan(xmin) or np.isnan(alpha):
             raise ValueError("plfit failed; returned a nan")
 
         if not quiet:
@@ -299,9 +358,10 @@ class plfit:
         return xmin,alpha
 
 
-    def discrete_best_alpha(self, alpharangemults=(0.9,1.1), n_alpha=201, approximate=True, verbose=True, finite=True):
+    def discrete_best_alpha(self, alpharangemults=(0.9,1.1), n_alpha=201,
+                            approximate=True, verbose=True, finite=True):
         """
-        Use the maximum L to determine the most likely value of alpha
+        Use the maximum likelihood to determine the most likely value of alpha
 
         *alpharangemults* [ 2-tuple ]
             Pair of values indicating multiplicative factors above and below the
@@ -318,18 +378,21 @@ class plfit:
         """
 
         data = self.data
-        self._xmins = xmins = numpy.unique(data)
+        self._xmins = xmins = np.unique(data)
         if approximate:
             alpha_of_xmin = [ discrete_alpha_mle(data,xmin) for xmin in xmins ]
         else:
             alpha_approx = [ discrete_alpha_mle(data,xmin) for xmin in xmins ]
             alpharanges = [(0.9*a,1.1*a) for a in alpha_approx]
-            alpha_of_xmin = [ most_likely_alpha(data,xmin,alpharange=ar,n_alpha=n_alpha) for xmin,ar in zip(xmins,alpharanges) ]
-        ksvalues = numpy.array([ discrete_ksD(data, xmin, alpha) for xmin,alpha in zip(xmins,alpha_of_xmin) ])
-        self._av = numpy.array(alpha_of_xmin)
+            alpha_of_xmin = [ most_likely_alpha(data,xmin,alpharange=ar,n_alpha=n_alpha)
+                             for xmin,ar in zip(xmins,alpharanges) ]
+        ksvalues = np.array([discrete_ksD(data, xmin, alpha)
+                                for xmin,alpha in zip(xmins,alpha_of_xmin)
+                               ])
+        self._alpha_values = np.array(alpha_of_xmin)
         self._xmin_kstest = ksvalues
         
-        ksvalues[numpy.isnan(ksvalues)] = numpy.inf
+        ksvalues[np.isnan(ksvalues)] = np.inf
 
         best_index = argmin(ksvalues)
         self._alpha = best_alpha = alpha_of_xmin[best_index]
@@ -347,8 +410,8 @@ class plfit:
 
 
         self._ngtx = n = (self.data>=self._xmin).sum()
-        self._alphaerr = (self._alpha-1.0)/numpy.sqrt(n)
-        if scipyOK: self._ks_prob = scipy.stats.kstwobign.sf(self._ks*numpy.sqrt(n))
+        self._alphaerr = (self._alpha-1.0)/np.sqrt(n)
+        if scipyOK: self._ks_prob = scipy.stats.kstwobign.sf(self._ks*np.sqrt(n))
 
         return best_alpha,best_xmin,best_ks,best_likelihood
 
@@ -379,7 +442,7 @@ class plfit:
         powerlaw or a different function.
         """
         
-        pylab.plot(1+self._av,self._xmin_kstest,'.')
+        pylab.plot(1+self._alpha_values,self._xmin_kstest,'.')
         pylab.errorbar(self._alpha,[self._ks],xerr=self._alphaerr,fmt='+')
 
         ax=pylab.gca()
@@ -401,9 +464,9 @@ class plfit:
         if xmin is None: xmin=self._xmin
         if alpha is None: alpha=self._alpha
 
-        x=numpy.sort(x)
+        x=np.sort(x)
         n=len(x)
-        xcdf = numpy.arange(n,0,-1,dtype='float')/float(n)
+        xcdf = np.arange(n,0,-1,dtype='float')/float(n)
 
         q = x[x>=xmin]
         fcdf = (q/xmin)**(1-alpha)
@@ -431,14 +494,14 @@ class plfit:
         if not(xmin): xmin=self._xmin
         if not(alpha): alpha=self._alpha
 
-        x=numpy.sort(x)
+        x=np.sort(x)
         n=len(x)
 
         pylab.gca().set_xscale('log')
         pylab.gca().set_yscale('log')
 
         if dnds:
-            hb = pylab.histogram(x,bins=numpy.logspace(log10(min(x)),log10(max(x)),nbins))
+            hb = pylab.histogram(x,bins=np.logspace(log10(min(x)),log10(max(x)),nbins))
             h = hb[0]
             b = hb[1]
             db = hb[1][1:]-hb[1][:-1]
@@ -446,11 +509,11 @@ class plfit:
             pylab.plot(b[:-1],h,drawstyle=drawstyle,color=histcolor,**kwargs)
             #alpha -= 1
         elif dolog:
-            hb = pylab.hist(x,bins=numpy.logspace(log10(min(x)),log10(max(x)),nbins),log=True,fill=False,edgecolor=histcolor,**kwargs)
+            hb = pylab.hist(x,bins=np.logspace(log10(min(x)),log10(max(x)),nbins),log=True,fill=False,edgecolor=histcolor,**kwargs)
             alpha -= 1
             h,b=hb[0],hb[1]
         else:
-            hb = pylab.hist(x,bins=numpy.linspace((min(x)),(max(x)),nbins),fill=False,edgecolor=histcolor,**kwargs)
+            hb = pylab.hist(x,bins=np.linspace((min(x)),(max(x)),nbins),fill=False,edgecolor=histcolor,**kwargs)
             h,b=hb[0],hb[1]
         # plotting points are at the center of each bin
         b = (b[1:]+b[:-1])/2.0
@@ -461,7 +524,7 @@ class plfit:
         # Normalize by the median ratio between the histogram and the power-law
         # The normalization is semi-arbitrary; an average is probably just as valid
         plotloc = (b>xmin)*(h>0)
-        norm = numpy.median( h[plotloc] / ((alpha-1)/xmin * (b[plotloc]/xmin)**(-alpha))  )
+        norm = np.median( h[plotloc] / ((alpha-1)/xmin * (b[plotloc]/xmin)**(-alpha))  )
         px = px*norm
 
         plotx = pylab.linspace(q.min(),q.max(),1000)
@@ -483,14 +546,14 @@ class plfit:
         """
         if not(xmin): xmin=self._xmin
         if not(alpha): alpha=self._alpha
-        if not(x): x=numpy.sort(self.data[self.data>xmin])
-        else: x=numpy.sort(x[x>xmin])
+        if not(x): x=np.sort(self.data[self.data>xmin])
+        else: x=np.sort(x[x>xmin])
 
         # N = M^(-alpha+1)
         # M = N^(1/(-alpha+1))
         
         m0 = min(x)
-        N = (1.0+numpy.arange(len(x)))[::-1]
+        N = (1.0+np.arange(len(x)))[::-1]
         xmodel = m0 * N**(1/(1-alpha)) / max(N)**(1/(1-alpha))
         
         if dolog:
@@ -541,11 +604,11 @@ class plfit:
         for i in xrange(niter):
             # first, randomly sample from power law
             # with caveat!  
-            nonplind = numpy.floor(npr.rand(nrandnot)*nnot).astype('int')
+            nonplind = np.floor(npr.rand(nrandnot)*nnot).astype('int')
             fakenonpl = nonpldata[nonplind]
             randarr = npr.rand(nrandtail)
             fakepl = randarr**(1/(1-alpha)) * xmin 
-            fakedata = numpy.concatenate([fakenonpl,fakepl])
+            fakedata = np.concatenate([fakenonpl,fakepl])
             if print_timing: t0 = time.time()
             # second, fit to powerlaw
             # (add some silencing kwargs optionally)
@@ -558,13 +621,13 @@ class plfit:
                 deltat.append( time.time() - t0 )
                 print "Iteration %i: %g seconds" % (i, deltat[-1])
         
-        ksv = numpy.array(ksv)
+        ksv = np.array(ksv)
         p = (ksv>self._ks).sum() / float(niter)
         self._pval = p
         self._ks_rand = ksv
 
         print "p(%i) = %0.3f" % (niter,p)
-        if print_timing: print "Iteration timing: %g +/- %g" % (numpy.mean(deltat),numpy.std(deltat))
+        if print_timing: print "Iteration timing: %g +/- %g" % (np.mean(deltat),np.std(deltat))
 
         return p,ksv
 
@@ -577,10 +640,10 @@ class plfit:
         # mu = log(self.data).sum() / N
         # sigmasquared = ( ( log(self.data) - mu )**2 ).sum() / N
         # self.lognormal_mu = mu
-        # self.lognormal_sigma = numpy.sqrt(sigmasquared)
-        # self.lognormal_likelihood = -N/2. * log(numpy.pi*2) - N/2. * log(sigmasquared) - 1/(2*sigmasquared) * (( self.data - mu )**2).sum()
+        # self.lognormal_sigma = np.sqrt(sigmasquared)
+        # self.lognormal_likelihood = -N/2. * log(np.pi*2) - N/2. * log(sigmasquared) - 1/(2*sigmasquared) * (( self.data - mu )**2).sum()
         # if doprint:
-        #     print "Best fit lognormal is exp( -(x-%g)^2 / (2*%g^2)" % (mu,numpy.sqrt(sigmasquared))
+        #     print "Best fit lognormal is exp( -(x-%g)^2 / (2*%g^2)" % (mu,np.sqrt(sigmasquared))
         #     print "Likelihood: %g" % (self.lognormal_likelihood)
         if scipyOK:
             fitpars = scipy.stats.lognorm.fit(self.data)
@@ -630,9 +693,9 @@ class plfit:
         if not hasattr(self,'lognormal_dist'):
             return
 
-        x=numpy.sort(self.data)
+        x=np.sort(self.data)
         n=len(x)
-        xcdf = numpy.arange(n,0,-1,dtype='float')/float(n)
+        xcdf = np.arange(n,0,-1,dtype='float')/float(n)
         lcdf = self.lognormal_dist.sf(x)
 
         D_location = argmax(xcdf-lcdf)
@@ -726,12 +789,12 @@ def test_fitter(xmin=1.0,alpha=2.5,niter=500,npts=1000,invcdf=plexp_inv):
         # mean(af): 2.51 median(af): 2.50 std(af): 0.07
 
     """
-    xmin = numpy.array(xmin)
+    xmin = np.array(xmin)
     if xmin.shape == ():
         xmin.shape = 1
     lx = len(xmin)
     sz = [niter,lx]
-    xmarr,alphaf_v,ksv,nxarr = numpy.zeros(sz),numpy.zeros(sz),numpy.zeros(sz),numpy.zeros(sz)
+    xmarr,alphaf_v,ksv,nxarr = np.zeros(sz),np.zeros(sz),np.zeros(sz),np.zeros(sz)
     for j in xrange(lx):
         for i in xrange(niter):
             randarr = npr.rand(npts)
@@ -761,7 +824,7 @@ def discrete_likelihood(data, xmin, alpha):
     zz = data[data>=xmin]
     nn = len(zz)
 
-    sum_log_data = numpy.log(zz).sum()
+    sum_log_data = np.log(zz).sum()
 
     zeta = zeta(alpha, xmin)
 
@@ -784,15 +847,15 @@ def discrete_likelihood_vector(data, xmin, alpharange=(1.5,3.5), n_alpha=201):
     zz = data[data>=xmin]
     nn = len(zz)
 
-    alpha_vector = numpy.linspace(alpharange[0],alpharange[1],n_alpha)
-    sum_log_data = numpy.log(zz).sum()
+    alpha_vector = np.linspace(alpharange[0],alpharange[1],n_alpha)
+    sum_log_data = np.log(zz).sum()
 
     # alpha_vector is a vector, xmin is a scalar
     zeta_vector = zeta(alpha_vector, xmin)
 
-    #xminvec = numpy.arange(1.0,xmin)
+    #xminvec = np.arange(1.0,xmin)
 
-    #xminalphasum = numpy.sum([xm**(-alpha_vector) for xm in xminvec])
+    #xminalphasum = np.sum([xm**(-alpha_vector) for xm in xminvec])
     #L = -1*alpha_vector*sum_log_data - nn*log(zeta_vector) - xminalphasum
 
     L_of_alpha = -1*nn*log(zeta_vector) - alpha_vector * sum_log_data
@@ -804,7 +867,7 @@ def discrete_max_likelihood_arg(data, xmin, alpharange=(1.5,3.5), n_alpha=201):
     Returns the *argument* of the max of the likelihood of the data given an input xmin
     """
     likelihoods = discrete_likelihood_vector(data, xmin, alpharange=alpharange, n_alpha=n_alpha)
-    Largmax = numpy.argmax(likelihoods)
+    Largmax = np.argmax(likelihoods)
     return Largmax
 
 def discrete_max_likelihood(data, xmin, alpharange=(1.5,3.5), n_alpha=201):
@@ -812,15 +875,17 @@ def discrete_max_likelihood(data, xmin, alpharange=(1.5,3.5), n_alpha=201):
     Returns the *argument* of the max of the likelihood of the data given an input xmin
     """
     likelihoods = discrete_likelihood_vector(data, xmin, alpharange=alpharange, n_alpha=n_alpha)
-    Lmax = numpy.max(likelihoods)
+    Lmax = np.max(likelihoods)
     return Lmax
 
 def most_likely_alpha(data, xmin, alpharange=(1.5,3.5), n_alpha=201):
     """
     Return the most likely alpha for the data given an xmin
     """
-    alpha_vector = numpy.linspace(alpharange[0],alpharange[1],n_alpha)
-    return alpha_vector[discrete_max_likelihood_arg(data, xmin, alpharange=alpharange, n_alpha=n_alpha)]
+    alpha_vector = np.linspace(alpharange[0],alpharange[1],n_alpha)
+    return alpha_vector[discrete_max_likelihood_arg(data, xmin,
+                                                    alpharange=alpharange,
+                                                    n_alpha=n_alpha)]
 
 def discrete_alpha_mle(data, xmin): 
     """
@@ -848,7 +913,7 @@ def discrete_best_alpha(data, alpharangemults=(0.9,1.1), n_alpha=201, approximat
         "exact" alpha (by directly maximizing the likelihood function)
     """
 
-    xmins = numpy.unique(data)
+    xmins = np.unique(data)
     if approximate:
         alpha_of_xmin = [ discrete_alpha_mle(data,xmin) for xmin in xmins ]
     else:
@@ -882,13 +947,15 @@ def discrete_ksD(data, xmin, alpha):
     are potentially multiple identical points that need comparison to the power
     law)
     """
-    zz = numpy.sort(data[data>=xmin])
+    zz = np.sort(data[data>=xmin])
     nn = float(len(zz))
-    if nn < 2: return numpy.inf
-    #cx = numpy.arange(nn,dtype='float')/float(nn)
+    if nn < 2: return np.inf
+    #cx = np.arange(nn,dtype='float')/float(nn)
     #cf = 1.0-(zz/xmin)**(1.0-alpha)
     model_cdf = 1.0-(zz/xmin)**(1.0-alpha)
-    data_cdf  = numpy.searchsorted(zz,zz,side='left')/(float(nn))
+    data_cdf  = np.searchsorted(zz,zz,side='left')/(float(nn))
 
     ks = max(abs(model_cdf-data_cdf))
     return ks
+
+
