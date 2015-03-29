@@ -291,6 +291,10 @@ class plfit(object):
 
             self._alpha_values = alpha_values
             self._xmin_kstest = kstest_values
+            if scipyOK:
+                # CHECK THIS
+                self._ks_prob_all = [scipy.stats.ksone.sf(D_stat, len(kstest_values)-ii)
+                                     for ii,D_stat in enumerate(kstest_values)]
             self._sigma = sigma
 
             # sanity check
@@ -326,7 +330,7 @@ class plfit(object):
         self._ks = ks
 
         if scipyOK:
-            self._ks_prob = scipy.stats.kstwobign.sf(ks*np.sqrt(n))
+            self._ks_prob = scipy.stats.ksone.sf(ks, n)
 
         self._ngtx = n
         if n == 1:
@@ -415,7 +419,8 @@ class plfit(object):
 
         self._ngtx = n = (self.data>=self._xmin).sum()
         self._alphaerr = (self._alpha-1.0)/np.sqrt(n)
-        if scipyOK: self._ks_prob = scipy.stats.kstwobign.sf(self._ks*np.sqrt(n))
+        if scipyOK:
+            self._ks_prob = scipy.stats.ksone.sf(self._ks, n)
 
         return best_alpha,best_xmin,best_ks,best_likelihood
 
@@ -460,7 +465,7 @@ class plfit(object):
         return ax
 
     def plotcdf(self, x=None, xmin=None, alpha=None, pointcolor='k',
-            pointmarker='+', **kwargs):
+                dolog=True, zoom=True, pointmarker='+', **kwargs):
         """
         Plots CDF and powerlaw
         """
@@ -478,17 +483,29 @@ class plfit(object):
         fcdf_norm = nc*fcdf
 
         D_location = argmax(xcdf[x>=xmin]-fcdf_norm)
-        pylab.vlines(q[D_location],xcdf[x>=xmin][D_location],fcdf_norm[D_location],color='m',linewidth=2)
+        pylab.vlines(q[D_location], xcdf[x>=xmin][D_location],
+                     fcdf_norm[D_location], color='m', linewidth=2, zorder=2)
+        pylab.plot([q[D_location]]*2,
+                   [xcdf[x>=xmin][D_location], fcdf_norm[D_location]],
+                   color='m',
+                   marker='s', zorder=3)
 
         #plotx = pylab.linspace(q.min(),q.max(),1000)
         #ploty = (plotx/xmin)**(1-alpha) * nc
 
-        pylab.loglog(x,xcdf,marker=pointmarker,color=pointcolor,**kwargs)
-        #pylab.loglog(plotx,ploty,'r',**kwargs)
-        pylab.loglog(q,fcdf_norm,'r',**kwargs)
+        if dolog:
+            pylab.loglog(x,xcdf,marker=pointmarker,color=pointcolor,**kwargs)
+            pylab.loglog(q,fcdf_norm,'r',**kwargs)
+        else:
+            pylab.semilogx(x,xcdf,marker=pointmarker,color=pointcolor,**kwargs)
+            pylab.semilogx(q,fcdf_norm,'r',**kwargs)
 
-    def plotpdf(self,x=None,xmin=None,alpha=None,nbins=50,dolog=True,dnds=False,
-            drawstyle='steps-post', histcolor='k', plcolor='r', **kwargs):
+        if zoom:
+            pylab.axis([xmin, x.max(), xcdf.min(), nc])
+
+    def plotpdf(self, x=None, xmin=None, alpha=None, nbins=50, dolog=True,
+                dnds=False, drawstyle='steps-post', histcolor='k', plcolor='r',
+                **kwargs):
         """
         Plots PDF and powerlaw.
 
@@ -513,7 +530,9 @@ class plfit(object):
             pylab.plot(b[:-1],h,drawstyle=drawstyle,color=histcolor,**kwargs)
             #alpha -= 1
         elif dolog:
-            hb = pylab.hist(x,bins=np.logspace(log10(min(x)),log10(max(x)),nbins),log=True,fill=False,edgecolor=histcolor,**kwargs)
+            hb = pylab.hist(x, bins=np.logspace(log10(min(x)), log10(max(x)),
+                                                nbins), log=True, fill=False,
+                            edgecolor=histcolor, **kwargs)
             alpha -= 1
             h,b=hb[0],hb[1]
         else:
@@ -535,12 +554,16 @@ class plfit(object):
         ploty = (alpha-1)/xmin * (plotx/xmin)**(-alpha) * norm
 
         #pylab.loglog(q,px,'r',**kwargs)
-        pylab.loglog(plotx,ploty,color=plcolor,**kwargs)
+        pylab.plot(plotx,ploty,color=plcolor,**kwargs)
 
         axlims = pylab.axis()
         pylab.vlines(xmin,axlims[2],max(px),colors=plcolor,linestyle='dashed')
 
-        pylab.gca().set_xlim(min(x),max(x))
+        if dolog and min(x) <= 0:
+            lolim = 0.1
+        else:
+            lolim = min(x)
+        pylab.gca().set_xlim(lolim, max(x))
 
     def plotppf(self,x=None,xmin=None,alpha=None,dolog=True,**kwargs):
         """
