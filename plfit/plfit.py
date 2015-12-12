@@ -1,10 +1,10 @@
 # -*- coding: latin-1 -*-
-# 
+#
 # intended to implement a power-law fitting routine as specified in.....
 # http://www.santafe.edu/~aaronc/powerlaws/
 #
 # The MLE for the power-law alpha is very easy to derive given knowledge
-# of the lowest value at which a power law holds, but that point is 
+# of the lowest value at which a power law holds, but that point is
 # difficult to derive and must be acquired iteratively.
 
 """
@@ -24,8 +24,9 @@ Example very simple use::
     MyPL.plotpdf(log=True)
 
 """
+from __future__ import print_function
 
-import numpy 
+import numpy
 import numpy as np
 import time
 import pylab
@@ -145,19 +146,19 @@ class plfit(object):
 
     def __init__(self,x,**kwargs):
         """
-        Initializes and fits the power law.  Can pass "quiet" to turn off 
+        Initializes and fits the power law.  Can pass "quiet" to turn off
         output (except for warnings; "silent" turns off warnings)
         """
-        x = np.array(x) # make sure x is an array, otherwise the next step fails 
+        x = np.array(x) # make sure x is an array, otherwise the next step fails
         if (x<0).sum() > 0:
             print("Removed %i negative points" % ((x<0).sum()))
             x = x[x>0]
         self.data = x
         self.plfit(**kwargs)
-    
+
 
     def plfit(self, nosmall=True, finite=False, quiet=False, silent=False,
-            usefortran=False, usecy=False, xmin=None, verbose=False, 
+            usefortran=False, usecy=False, xmin=None, verbose=False,
             discrete=None, discrete_approx=True, discrete_n_alpha=1000):
         """
         A Python implementation of the Matlab code http://www.santafe.edu/~aaronc/powerlaws/plfit.m
@@ -199,10 +200,10 @@ class plfit(object):
         *quiet* [ bool (False) ]
             If False, delivers messages about what fitter is used and the fit results
 
-        *verbose* [ bool (False) ] 
+        *verbose* [ bool (False) ]
             Deliver descriptive messages about the fit parameters (only if *quiet*==False)
 
-        *silent* [ bool (False) ] 
+        *silent* [ bool (False) ]
             If True, will print NO messages
         """
         x = self.data
@@ -217,7 +218,7 @@ class plfit(object):
         # argxmins = the index of each of these possible thresholds
         xmins,argxmins = np.unique(z,return_index=True)
         self._nunique = len(xmins)
-        
+
         if self._nunique == len(x) and discrete is None:
             if verbose:
                 print("Using CONTINUOUS fitter because there are no repeated "
@@ -259,10 +260,10 @@ class plfit(object):
                 if not quiet:
                     print(("PYTHON plfit executed in %f seconds" % (time.time()-t)))
 
-            if not quiet: 
+            if not quiet:
                 if usefortran and not fortranOK:
                     raise ImportError("fortran fplfit did not load")
-                if usecy and not cyOK: 
+                if usecy and not cyOK:
                     raise ImportError("cython cplfit did not load")
 
             # For each alpha, the number of included data points is
@@ -279,7 +280,7 @@ class plfit(object):
                 nmax = argmin(goodvals)
                 if nmax <= 0:
                     nmax = len(xmins) - 1
-                    if not silent: 
+                    if not silent:
                         print("Not enough data left after flagging "
                               "low S/N points.  "
                               "Using all data.")
@@ -289,7 +290,7 @@ class plfit(object):
                 nmax = len(xmins)-1
 
             best_ks_index = argmin(kstest_values[:nmax])
-            xmin  = xmins[best_ks_index] 
+            xmin  = xmins[best_ks_index]
 
             self._alpha_values = alpha_values
             self._xmin_kstest = kstest_values
@@ -356,7 +357,7 @@ class plfit(object):
             if verbose: print("\nThe number of values above xmin, ", end=' ')
             print("n(>xmin): %i" % n, end=' ')
             if verbose: print("\nThe derived power-law alpha (p(x)~x^-alpha) with MLE-derived error, ", end=' ')
-            print("alpha: %g +/- %g  " % (alpha,self._alphaerr), end=' ') 
+            print("alpha: %g +/- %g  " % (alpha,self._alphaerr), end=' ')
             if verbose: print("\nThe log of the Likelihood (the maximized parameter; you minimized the negative log likelihood), ", end=' ')
             print("Log-Likelihood: %g  " % L, end=' ')
             if verbose: print("\nThe KS-test statistic between the best-fit power-law and the data, ", end=' ')
@@ -403,7 +404,7 @@ class plfit(object):
                                ])
         self._alpha_values = np.array(alpha_of_xmin)
         self._xmin_kstest = ksvalues
-        
+
         ksvalues[np.isnan(ksvalues)] = np.inf
 
         best_index = argmin(ksvalues)
@@ -431,11 +432,11 @@ class plfit(object):
     def xminvsks(self, **kwargs):
         """
         Plot xmin versus the ks value for derived alpha.  This plot can be used
-        as a diagnostic of whether you have derived the 'best' fit: if there are 
-        multiple local minima, your data set may be well suited to a broken 
+        as a diagnostic of whether you have derived the 'best' fit: if there are
+        multiple local minima, your data set may be well suited to a broken
         powerlaw or a different function.
         """
-        
+
         pylab.plot(self._xmins,self._xmin_kstest,'.')
         pylab.plot(self._xmin,self._ks,'s')
         #pylab.errorbar([self._ks],self._alpha,yerr=self._alphaerr,fmt='+')
@@ -450,11 +451,11 @@ class plfit(object):
     def alphavsks(self,autozoom=True,**kwargs):
         """
         Plot alpha versus the ks value for derived alpha.  This plot can be used
-        as a diagnostic of whether you have derived the 'best' fit: if there are 
-        multiple local minima, your data set may be well suited to a broken 
+        as a diagnostic of whether you have derived the 'best' fit: if there are
+        multiple local minima, your data set may be well suited to a broken
         powerlaw or a different function.
         """
-        
+
         pylab.plot(self._alpha_values, self._xmin_kstest, '.')
         pylab.errorbar(self._alpha, self._ks, xerr=self._alphaerr, fmt='+')
 
@@ -572,7 +573,7 @@ class plfit(object):
     def plotppf(self,x=None,xmin=None,alpha=None,dolog=True,**kwargs):
         """
         Plots the power-law-predicted value on the Y-axis against the real
-        values along the X-axis.  Can be used as a diagnostic of the fit 
+        values along the X-axis.  Can be used as a diagnostic of the fit
         quality.
         """
         if not(xmin): xmin=self._xmin
@@ -582,11 +583,11 @@ class plfit(object):
 
         # N = M^(-alpha+1)
         # M = N^(1/(-alpha+1))
-        
+
         m0 = min(x)
         N = (1.0+np.arange(len(x)))[::-1]
         xmodel = m0 * N**(1/(1-alpha)) / max(N)**(1/(1-alpha))
-        
+
         if dolog:
             pylab.loglog(x,xmodel,'.',**kwargs)
             pylab.gca().set_xlim(min(x),max(x))
@@ -607,14 +608,14 @@ class plfit(object):
         be chosen from a uniform random distribution with p(<xmin) = n(<xmin)/n.
 
         Once the sample is created, it is fit using above methods, then the best fit is used to
-        compute a Kolmogorov-Smirnov statistic.  The KS stat distribution is compared to the 
+        compute a Kolmogorov-Smirnov statistic.  The KS stat distribution is compared to the
         KS value for the fit to the actual data, and p = fraction of random ks values greater
-        than the data ks value is computed.  If p<.1, the data may be inconsistent with a 
+        than the data ks value is computed.  If p<.1, the data may be inconsistent with a
         powerlaw.  A data set of n(>xmin)>100 is required to distinguish a PL from an exponential,
         and n(>xmin)>~300 is required to distinguish a log-normal distribution from a PL.
         For more details, see figure 4.1 and section
 
-        **WARNING** This can take a very long time to run!  Execution time scales as 
+        **WARNING** This can take a very long time to run!  Execution time scales as
         niter * setsize
 
         """
@@ -634,11 +635,11 @@ class plfit(object):
         if print_timing: deltat = []
         for i in xrange(niter):
             # first, randomly sample from power law
-            # with caveat!  
+            # with caveat!
             nonplind = np.floor(npr.rand(nrandnot)*nnot).astype('int')
             fakenonpl = nonpldata[nonplind]
             randarr = npr.rand(nrandtail)
-            fakepl = randarr**(1/(1-alpha)) * xmin 
+            fakepl = randarr**(1/(1-alpha)) * xmin
             fakedata = np.concatenate([fakenonpl,fakepl])
             if print_timing: t0 = time.time()
             # second, fit to powerlaw
@@ -648,10 +649,10 @@ class plfit(object):
                     kwargs[k] = v
             TEST = plfit(fakedata,**kwargs)
             ksv.append(TEST._ks)
-            if print_timing: 
+            if print_timing:
                 deltat.append( time.time() - t0 )
                 print("Iteration %i: %g seconds" % (i, deltat[-1]))
-        
+
         ksv = np.array(ksv)
         p = (ksv>self._ks).sum() / float(niter)
         self._pval = p
@@ -700,8 +701,8 @@ class plfit(object):
             # Assuming we want the ratio between the POSITIVE likelihoods, the D statistic is:
             # D = -2 log( L_power / L_lognormal )
             self.likelihood_ratio_D = -2 * (log(self._likelihood/self.lognormal_likelihood))
-            
-            if doprint: 
+
+            if doprint:
                 print("Lognormal KS D: %g  p(D): %g" % (self.lognormal_ksD,self.lognormal_ksP), end=' ')
                 print("  Likelihood Ratio Statistic (powerlaw/lognormal): %g" % self.likelihood_ratio_D)
                 print("At this point, have a look at Clauset et al 2009 Appendix C: determining sigma(likelihood_ratio)")
@@ -712,7 +713,7 @@ class plfit(object):
         """
         if not hasattr(self,'lognormal_dist'):
             return
-        
+
         normalized_pdf = self.lognormal_dist.pdf(self.data)/self.lognormal_dist.pdf(self.data).max()
         minY,maxY = pylab.gca().get_ylim()
         pylab.plot(self.data,normalized_pdf*maxY,'.',**kwargs)
@@ -731,7 +732,7 @@ class plfit(object):
 
         D_location = argmax(xcdf-lcdf)
         pylab.vlines(x[D_location],xcdf[D_location],lcdf[D_location],color='m',linewidth=2)
-        
+
         pylab.plot(x, lcdf,',',**kwargs)
 
 
@@ -783,21 +784,21 @@ def plexp_pdf(x,xmin=1,alpha=2.5):
 # def plexp_inv(P,xmin,alpha):
 #     """
 #     Inverse CDF for a piecewise PDF as defined in eqn. 3.10
-#     of Clauset et al.  
+#     of Clauset et al.
 #     """
-# 
+#
 #     C = 1/(-xmin/(1 - alpha) - xmin/alpha + exp(alpha)*xmin/alpha)
 #     Pxm = -C*(xmin/(1-alpha))
 #     x = P*0
 #     x[P>=Pxm] = xmin*( (P[P>=Pxm]-1) * (1-alpha)/(C*xmin) )**(1/(1-alpha)) # powerlaw
 #     x[P<Pxm] = (log( (C*xmin/alpha*exp(alpha)-P[P<Pxm])/(C*xmin/alpha) ) - alpha) * (-xmin/alpha) # exp
-# 
+#
 #     return x
 
 def plexp_inv(P, xmin, alpha, guess=1.):
     """
     Inverse CDF for a piecewise PDF as defined in eqn. 3.10
-    of Clauset et al.  
+    of Clauset et al.
 
     (previous version was incorrect and lead to weird discontinuities in the
     distribution function)
@@ -810,16 +811,16 @@ def plexp_inv(P, xmin, alpha, guess=1.):
     return f(P)
 
 def pl_inv(P,xm,a):
-    """ 
+    """
     Inverse CDF for a pure power-law
     """
-    
+
     x = (1-P)**(1/(1-a)) * xm
     return x
 
 def test_fitter(xmin=1.0,alpha=2.5,niter=500,npts=1000,invcdf=plexp_inv):
     """
-    Tests the power-law fitter 
+    Tests the power-law fitter
 
     Examples
     ========
@@ -843,7 +844,7 @@ def test_fitter(xmin=1.0,alpha=2.5,niter=500,npts=1000,invcdf=plexp_inv):
         # mean(xmarr) = 0.70, median(xmarr)=0.65 std(xmarr)=0.20
         # mean(af) = 2.51 median(af) = 2.49  std(af)=0.14
         # biased distribution; far from correct value of xmin but close to correct alpha
-    
+
     Example 4::
 
         xmarr,af,ksv,nxarr = plfit.test_fitter(xmin=1.0,niter=1000,npts=1000,invcdf=pl_inv)
@@ -879,7 +880,7 @@ def discrete_likelihood(data, xmin, alpha):
     Equation B.8 in Clauset
 
     Given a data set, an xmin value, and an alpha "scaling parameter", computes
-    the log-likelihood (the value to be maximized) 
+    the log-likelihood (the value to be maximized)
     """
     if not scipyOK:
         raise ImportError("Can't import scipy.  Need scipy for zeta function.")
@@ -903,7 +904,7 @@ def discrete_likelihood_vector(data, xmin, alpharange=(1.5,3.5), n_alpha=201):
     maximization problem as described in Clauset et al
     (Equation B.8)
 
-    *alpharange* [ 2-tuple ] 
+    *alpharange* [ 2-tuple ]
         Two floats specifying the upper and lower limits of the power law alpha to test
     """
     from scipy.special import zeta as zeta
@@ -951,7 +952,7 @@ def most_likely_alpha(data, xmin, alpharange=(1.5,3.5), n_alpha=201):
                                                     alpharange=alpharange,
                                                     n_alpha=n_alpha)]
 
-def discrete_alpha_mle(data, xmin): 
+def discrete_alpha_mle(data, xmin):
     """
     Equation B.17 of Clauset et al 2009
 
@@ -985,7 +986,7 @@ def discrete_best_alpha(data, alpharangemults=(0.9,1.1), n_alpha=201, approximat
         alpharanges = [(0.9*a,1.1*a) for a in alpha_approx]
         alpha_of_xmin = [ most_likely_alpha(data,xmin,alpharange=ar,n_alpha=n_alpha) for xmin,ar in zip(xmins,alpharanges) ]
     ksvalues = [ discrete_ksD(data, xmin, alpha) for xmin,alpha in zip(xmins,alpha_of_xmin) ]
-    
+
     best_index = argmin(ksvalues)
     best_alpha = alpha_of_xmin[best_index]
     best_xmin = xmins[best_index]
@@ -1006,7 +1007,7 @@ def discrete_ksD(data, xmin, alpha):
     D value w/data
 
     The returned value is the "D" parameter in the ks test
-    
+
     (this is implemented differently from the continuous version because there
     are potentially multiple identical points that need comparison to the power
     law)
@@ -1021,5 +1022,3 @@ def discrete_ksD(data, xmin, alpha):
 
     ks = max(abs(model_cdf-data_cdf))
     return ks
-
-
