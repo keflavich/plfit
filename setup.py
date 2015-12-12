@@ -49,7 +49,6 @@ except AttributeError:
 dirs = list(Cython.__path__)
 dirs.extend(numpy_include_dirs)
 dirs.append('.')
-print dirs
 
 ext_cplfit = Extension("plfit.cplfit",
                        ["plfit/cplfit.pyx"],
