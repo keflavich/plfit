@@ -196,8 +196,8 @@ def plexp(x,xm=1,a=2.5):
     """
 
     C = 1/(-xm/(1 - a) - xm/a + math.exp(a)*xm/a)
-    Ppl = lambda(X): 1+C*(xm/(1-a)*(X/xm)**(1-a))
-    Pexp = lambda(X): C*xm/a*math.exp(a)-C*(xm/a)*math.exp(-a*(X/xm-1))
+    Ppl = lambda X: 1+C*(xm/(1-a)*(X/xm)**(1-a))
+    Pexp = lambda X: C*xm/a*math.exp(a)-C*(xm/a)*math.exp(-a*(X/xm-1))
     d=Ppl(x)
     d[x<xm]=Pexp(x)
     return d
