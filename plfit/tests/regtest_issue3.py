@@ -14,9 +14,9 @@ tst_fit_py = plfit.plfit(y, usecy=False, usefortran=False, discrete=False)
 tst_fit_fo = plfit.plfit(y, usecy=False, usefortran=True, discrete=False)
 tst_fit_cy = plfit.plfit(y, usecy=True, usefortran=False, discrete=False)
 
-print "py: ",tst_fit_py._xmins.shape, tst_fit_py._xmin_kstest.shape
-print "cy: ",tst_fit_cy._xmins.shape, tst_fit_cy._xmin_kstest.shape
-print "fo: ",tst_fit_fo._xmins.shape, tst_fit_fo._xmin_kstest.shape
+print("py: ",tst_fit_py._xmins.shape, tst_fit_py._xmin_kstest.shape)
+print("cy: ",tst_fit_cy._xmins.shape, tst_fit_cy._xmin_kstest.shape)
+print("fo: ",tst_fit_fo._xmins.shape, tst_fit_fo._xmin_kstest.shape)
 
 def func(xmin):
     ff = plfit.plfit(y, xmin=xmin, quiet=True, silent=True)

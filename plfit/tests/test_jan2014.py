@@ -24,13 +24,13 @@ t3 = time.time()
 r_npy = Pnpy.plfit(usefortran=False, usecy=False, verbose=True, quiet=False, discrete=False, nosmall=False)
 t4 = time.time()
 
-print "xmin,alpha for 4 different implementations: "
-print "npy: ",r_npy
-print "ppy: ",r_ppy
-print "for: ",r_cy
-print "cy:  ",r_for
-print "nosmall: ",r_for_nosmall
-print
+print("xmin,alpha for 4 different implementations: ")
+print("npy: ",r_npy)
+print("ppy: ",r_ppy)
+print("for: ",r_cy)
+print("cy:  ",r_for)
+print("nosmall: ",r_for_nosmall)
+print()
 
 import powerlaw
 if 'results' not in locals():
@@ -38,21 +38,21 @@ if 'results' not in locals():
     results = powerlaw.Fit(A[A>0])
     t6 = time.time()
 
-print "Timing and xmin,alpha for powerlaw & 4 implementations: "
-print t6-t5,"powerlaw: ",results.power_law.xmin, results.power_law.alpha
-print t4-t3,"npy: ",r_npy
-print t3-t2,"ppy: ",r_ppy
-print t2-t1,"for: ",r_cy
-print t1-t0,"cy:  ",r_for
-print
+print("Timing and xmin,alpha for powerlaw & 4 implementations: ")
+print(t6-t5,"powerlaw: ",results.power_law.xmin, results.power_law.alpha)
+print(t4-t3,"npy: ",r_npy)
+print(t3-t2,"ppy: ",r_ppy)
+print(t2-t1,"for: ",r_cy)
+print(t1-t0,"cy:  ",r_for)
+print()
 
 
-print "Differences between plfit and powerlaw: "
-print "Powerlaw alpha, xmin: ",results.power_law.alpha, results.power_law.xmin
-print "npy: ",[(x1-x2) for x1,x2 in zip(r_npy,(results.power_law.xmin, results.power_law.alpha, ))]
-print "ppy: ",[(x1-x2) for x1,x2 in zip(r_ppy,(results.power_law.xmin, results.power_law.alpha, ))]
-print "for: ",[(x1-x2) for x1,x2 in zip(r_for,(results.power_law.xmin, results.power_law.alpha, ))]
-print "cy:  ",[(x1-x2) for x1,x2 in zip(r_cy ,(results.power_law.xmin, results.power_law.alpha, ))]
+print("Differences between plfit and powerlaw: ")
+print("Powerlaw alpha, xmin: ",results.power_law.alpha, results.power_law.xmin)
+print("npy: ",[(x1-x2) for x1,x2 in zip(r_npy,(results.power_law.xmin, results.power_law.alpha, ))])
+print("ppy: ",[(x1-x2) for x1,x2 in zip(r_ppy,(results.power_law.xmin, results.power_law.alpha, ))])
+print("for: ",[(x1-x2) for x1,x2 in zip(r_for,(results.power_law.xmin, results.power_law.alpha, ))])
+print("cy:  ",[(x1-x2) for x1,x2 in zip(r_cy ,(results.power_law.xmin, results.power_law.alpha, ))])
 
 
 # Below are some plots used for debugging
@@ -87,7 +87,7 @@ ylabel("$D_{KS}$")
 xlabel("$x_{min}$ index")
 legend(loc='best')
 
-print "What is the KS distance of the very last value, which in reality is undefined?"
-print "(As of Jan 2014, this value is explicitly excluded)"
-print [(x,locals()[x]._xmin_kstest[-1]) for x in "Py,Pnpy,Pcy,Pfor".split(',')]
+print("What is the KS distance of the very last value, which in reality is undefined?")
+print("(As of Jan 2014, this value is explicitly excluded)")
+print([(x,locals()[x]._xmin_kstest[-1]) for x in "Py,Pnpy,Pcy,Pfor".split(',')])
 
