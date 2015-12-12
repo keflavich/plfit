@@ -20,6 +20,7 @@ Example very simple use::
     MyPL.plotpdf(log=True)
 
 """
+from __future__ import print_function
 
 import time
 import random

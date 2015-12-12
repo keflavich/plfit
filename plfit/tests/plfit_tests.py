@@ -49,7 +49,7 @@ fig1 = plt.figure(1)
 fig1.clf()
 plt.plot(bx,m)
 
-print "XMIN fixed: Alpha = 2.5 (real), %0.3f +/- %0.3f (measured)" % (p[2],p[3])
+print("XMIN fixed: Alpha = 2.5 (real), %0.3f +/- %0.3f (measured)" % (p[2],p[3]))
 
 
 a=plt.zeros(ntests)
@@ -68,7 +68,7 @@ bx1 = (b1[1:]+b1[:-1])/2.0
 
 p1,m1,pe1,chi21 = gaussfitter.onedgaussfit(bx1,h1,params=[0,ntests/10.0,2.5,0.05],fixed=[1,0,0,0])
 plt.plot(bx1,m1)
-print "XMIN varies: Alpha = 2.5 (real), %0.3f +/- %0.3f (measured)" % (p1[2],p1[3])
+print("XMIN varies: Alpha = 2.5 (real), %0.3f +/- %0.3f (measured)" % (p1[2],p1[3]))
 
 fig3 = plt.figure(3)
 fig3.clf()
@@ -78,4 +78,4 @@ bx2 = (b2[1:]+b2[:-1])/2.0
 
 p2,m2,pe2,chi2 = gaussfitter.onedgaussfit(bx2,h2,params=[0,ntests/10.0,xmin,0.2],fixed=[1,0,0,0])
 plt.plot(bx2,m2)
-print "XMIN varies: XMIN = %0.3f (real), %0.3f +/- %0.3f (measured)" % (xmin,p2[2],p2[3])
+print("XMIN varies: XMIN = %0.3f (real), %0.3f +/- %0.3f (measured)" % (xmin,p2[2],p2[3]))
