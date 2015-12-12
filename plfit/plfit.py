@@ -759,8 +759,8 @@ def plexp_cdf(x,xmin=1,alpha=2.5, pl_only=False, exp_only=False):
 
     x = np.array(x)
     C = 1/(-xmin/(1 - alpha) - xmin/alpha + exp(alpha)*xmin/alpha)
-    Ppl = lambda(X): 1+C*(xmin/(1-alpha)*(X/xmin)**(1-alpha))
-    Pexp = lambda(X): C*xmin/alpha*exp(alpha)-C*(xmin/alpha)*exp(-alpha*(X/xmin-1))
+    Ppl = lambda X: 1+C*(xmin/(1-alpha)*(X/xmin)**(1-alpha))
+    Pexp = lambda X: C*xmin/alpha*exp(alpha)-C*(xmin/alpha)*exp(-alpha*(X/xmin-1))
 
     if exp_only:
         return Pexp(x)
@@ -774,8 +774,8 @@ def plexp_cdf(x,xmin=1,alpha=2.5, pl_only=False, exp_only=False):
 def plexp_pdf(x,xmin=1,alpha=2.5):
     x = np.array(x)
     C = 1/(-xmin/(1 - alpha) - xmin/alpha + exp(alpha)*xmin/alpha)
-    Ppl = lambda(X): C*(X/xmin)**(-alpha)
-    Pexp = lambda(X): C*exp(-alpha*(X/xmin-1))
+    Ppl = lambda X: C*(X/xmin)**(-alpha)
+    Pexp = lambda X: C*exp(-alpha*(X/xmin-1))
     d=Ppl(x)
     d[x<xmin] = Pexp(x)[x<xmin]
     return d
@@ -803,7 +803,8 @@ def plexp_inv(P, xmin, alpha, guess=1.):
     (previous version was incorrect and lead to weird discontinuities in the
     distribution function)
     """
-    equation = lambda x,prob: plexp_cdf(x, xmin, alpha)-prob
+    def equation(x,prob):
+        return plexp_cdf(x, xmin, alpha)-prob
     # http://stackoverflow.com/questions/19840425/scipy-optimize-faster-root-finding-over-2d-grid
     def solver(y, x0=guess):
         return scipy.optimize.fsolve(equation, guess, args=(y,))
