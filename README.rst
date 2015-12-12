@@ -126,7 +126,7 @@ A very simple example::
     myplfit.plotcdf()
 
 
-*If you use this code, please cite Clauset et al 2009 and consider posting a comment below.*  
+*If you use this code, please cite Clauset et al 2009*  
 
 Direction citations to the source are welcome!  The python translation has been cited in the following works (and perhaps others?):
 

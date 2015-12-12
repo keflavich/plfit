@@ -44,7 +44,7 @@ class plfit:
         """
         neg = [i<0 for i in x]
         if any(neg) > 0:
-            print "Removed %i negative points" % (sum(neg))
+            print("Removed %i negative points" % (sum(neg)))
             x = [i for i in x if i > 0]
         self.data = x
         self.plfit(**kwargs)
@@ -126,8 +126,8 @@ class plfit:
                     possible_xmins = possible_xmins[:nmax]
                     av = av[:nmax]
                 else:
-                    print "Not enough data left after flagging - using all positive data."
-            if not quiet: print "PYTHON plfit executed in %f seconds" % (time.time()-t)
+                    print("Not enough data left after flagging - using all positive data.")
+            if not quiet: print("PYTHON plfit executed in %f seconds" % (time.time()-t))
             self._av = av
             self._xmin_kstest = dat
             self._sigma = sigma
@@ -145,7 +145,7 @@ class plfit:
         if finite:
             alpha = alpha*(n-1.)/n+1./n
         if n == 1 and not silent:
-            print "Failure: only 1 point kept.  Probably not a power-law distribution."
+            print("Failure: only 1 point kept.  Probably not a power-law distribution.")
             self._alpha = 0
             self._alphaerr = 0
             self._likelihood = 0
@@ -154,7 +154,7 @@ class plfit:
             self._xmin = xmin
             return xmin,0
         if n < 50 and not finite and not silent:
-            print '(PLFIT) Warning: finite-size bias may be present. n=%i' % n
+            print('(PLFIT) Warning: finite-size bias may be present. n=%i' % n)
         # ks = max(abs( numpy.arange(n)/float(n) - (1-(xmin/z)**(alpha-1)) ))
         ks = max( [abs( i/float(n) - (1-(xmin/b)**(alpha-1))) for i,b in zip(xrange(n),z)] )
         # Parallels Eqn 3.5 in Clauset et al 2009, but zeta(alpha, xmin) = (alpha-1)/xmin.  Really is Eqn B3 in paper.
@@ -174,16 +174,16 @@ class plfit:
             raise ValueError("plfit failed; returned a nan")
 
         if not quiet:
-            if verbose: print "The lowest value included in the power-law fit, ",
-            print "xmin: %g" % xmin,
-            if verbose: print "\nThe number of values above xmin, ",
-            print "n(>xmin): %i" % n,
-            if verbose: print "\nThe derived power-law alpha (p(x)~x^-alpha) with MLE-derived error, ",
-            print "alpha: %g +/- %g  " % (alpha,self._alphaerr), 
-            if verbose: print "\nThe log of the Likelihood (the maximized parameter), ",
-            print "Log-Likelihood: %g  " % L,
-            if verbose: print "\nThe KS-test statistic between the best-fit power-law and the data, ",
-            print "ks: %g" % (ks)
+            if verbose: print("The lowest value included in the power-law fit, ", end=' ')
+            print("xmin: %g" % xmin, end=' ')
+            if verbose: print("\nThe number of values above xmin, ", end=' ')
+            print("n(>xmin): %i" % n, end=' ')
+            if verbose: print("\nThe derived power-law alpha (p(x)~x^-alpha) with MLE-derived error, ", end=' ')
+            print("alpha: %g +/- %g  " % (alpha,self._alphaerr), end=' ') 
+            if verbose: print("\nThe log of the Likelihood (the maximized parameter), ", end=' ')
+            print("Log-Likelihood: %g  " % L, end=' ')
+            if verbose: print("\nThe KS-test statistic between the best-fit power-law and the data, ", end=' ')
+            print("ks: %g" % (ks))
 
         return xmin,alpha
 
