@@ -180,7 +180,7 @@ class plfit(object):
             data; if your data set is continuous but you have any non-unique
             data points (e.g., flagged "bad" data), the "automatic"
             determination will fail.  If *discrete* is True or False, the
-            distcrete or continuous fitter will be used, respectively.
+            discrete or continuous fitter will be used, respectively.
 
         *xmin* [ float / int ]
             If you specify xmin, the fitter will only determine alpha assuming
@@ -269,6 +269,8 @@ class plfit(object):
             # total data length - first index of xmin
             # No +1 is needed: xmin is included.
             sigma = (alpha_values-1)/np.sqrt(len(z)-argxmins)
+            # I had changed it to this, but I think this is wrong.
+            # sigma = (alpha_values-1)/np.sqrt(len(z)-np.arange(len(z)))
 
             if nosmall:
                 # test to make sure the number of data points is high enough
@@ -293,8 +295,10 @@ class plfit(object):
             self._xmin_kstest = kstest_values
             if scipyOK:
                 # CHECK THIS
-                self._ks_prob_all = [scipy.stats.ksone.sf(D_stat, len(kstest_values)-ii)
-                                     for ii,D_stat in enumerate(kstest_values)]
+                self._ks_prob_all = np.array([scipy.stats.ksone.sf(D_stat,
+                                                                   len(kstest_values)-ii)
+                                              for ii,D_stat in
+                                              enumerate(kstest_values)])
             self._sigma = sigma
 
             # sanity check
