@@ -253,10 +253,10 @@ class plfit(object):
                 # python (numpy) version
                 f_alpha = alpha_gen(z)
                 f_kstest = kstest_gen(z)
-                alpha_values = np.asarray(map(f_alpha,xmins),
-                                             dtype='float')
-                kstest_values = np.asarray(map(f_kstest,xmins),
-                                              dtype='float')
+                alpha_values = np.asarray(list(map(f_alpha,xmins)),
+                                          dtype='float')
+                kstest_values = np.asarray(list(map(f_kstest,xmins)),
+                                           dtype='float')
                 if not quiet:
                     print(("PYTHON plfit executed in %f seconds" % (time.time()-t)))
 
