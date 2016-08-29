@@ -7,7 +7,7 @@ moved and re-packaged to make setup.py cleaner.
 
 `API Documentation <http://plfit.readthedocs.org/>`_
 
-See also http://code.google.com/p/powerlaw, an alternate implementation of the same algorithm with additional bells & whistles.
+See also https://github.com/jeffalstott/powerlaw, an alternate implementation of the same algorithm with additional bells & whistles.
 
 Installation
 ------------
