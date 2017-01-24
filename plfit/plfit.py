@@ -644,7 +644,7 @@ class plfit(object):
             if print_timing: t0 = time.time()
             # second, fit to powerlaw
             # (add some silencing kwargs optionally)
-            for k,v in {'quiet':True,'silent':True,'nosmall':True}.iteritems():
+            for k,v in {'quiet':True,'silent':True,'nosmall':True}.items():
                 if k not in kwargs:
                     kwargs[k] = v
             TEST = plfit(fakedata,**kwargs)
