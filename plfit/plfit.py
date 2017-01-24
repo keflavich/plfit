@@ -158,22 +158,25 @@ class plfit(object):
 
 
     def plfit(self, nosmall=True, finite=False, quiet=False, silent=False,
-            usefortran=False, usecy=False, xmin=None, verbose=False,
-            discrete=None, discrete_approx=True, discrete_n_alpha=1000):
+              usefortran=False, usecy=False, xmin=None, verbose=False,
+              discrete=None, discrete_approx=True, discrete_n_alpha=1000):
         """
-        A Python implementation of the Matlab code http://www.santafe.edu/~aaronc/powerlaws/plfit.m
+        A Python implementation of the Matlab code
+        http://www.santafe.edu/~aaronc/powerlaws/plfit.m
         from http://www.santafe.edu/~aaronc/powerlaws/
 
         See A. Clauset, C.R. Shalizi, and M.E.J. Newman, "Power-law distributions
         in empirical data" SIAM Review, 51, 661-703 (2009). (arXiv:0706.1062)
         http://arxiv.org/abs/0706.1062
 
-        There are 3 implementations of xmin estimation.  The fortran version is fastest, the C (cython)
-        version is ~10% slower, and the python version is ~3x slower than the fortran version.
-        Also, the cython code suffers ~2% numerical error relative to the fortran and python for unknown
+        There are 3 implementations of xmin estimation.  The fortran version is
+        fastest, the C (cython) version is ~10% slower, and the python version
+        is ~3x slower than the fortran version.  Also, the cython code suffers
+        ~2% numerical error relative to the fortran and python for unknown
         reasons.
 
-        There is also a discrete version implemented in python - it is different from the continous version!
+        There is also a discrete version implemented in python - it is
+        different from the continous version!
 
         *discrete* [ bool | None ]
             If *discrete* is None, the code will try to determine whether the
