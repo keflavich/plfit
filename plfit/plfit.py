@@ -633,7 +633,7 @@ class plfit(object):
 
         ksv = []
         if print_timing: deltat = []
-        for i in xrange(niter):
+        for i in range(niter):
             # first, randomly sample from power law
             # with caveat!
             nonplind = np.floor(npr.rand(nrandnot)*nnot).astype('int')
@@ -861,8 +861,8 @@ def test_fitter(xmin=1.0,alpha=2.5,niter=500,npts=1000,invcdf=plexp_inv):
     lx = len(xmin)
     sz = [niter,lx]
     xmarr,alphaf_v,ksv,nxarr = np.zeros(sz),np.zeros(sz),np.zeros(sz),np.zeros(sz)
-    for j in xrange(lx):
-        for i in xrange(niter):
+    for j in range(lx):
+        for i in range(niter):
             randarr = npr.rand(npts)
             fakedata = invcdf(randarr,xmin[j],alpha)
             TEST = plfit(fakedata,quiet=True,silent=True,nosmall=True)

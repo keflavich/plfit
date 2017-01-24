@@ -84,7 +84,7 @@ class plfit:
             divsum = sum([math.log(i/xmin) for i in x])
             if divsum == 0: return float('inf')
             a = float(n) / divsum
-            cx = [float(i)/float(n) for i in xrange(int(n))]
+            cx = [float(i)/float(n) for i in range(int(n))]
             cf = [1-(xmin/i)**a for i in x]
             ks = max([abs(a-b) for a,b in zip(cf,cx)])
             return ks
@@ -157,7 +157,7 @@ class plfit:
         if n < 50 and not finite and not silent:
             print('(PLFIT) Warning: finite-size bias may be present. n=%i' % n)
         # ks = max(abs( numpy.arange(n)/float(n) - (1-(xmin/z)**(alpha-1)) ))
-        ks = max( [abs( i/float(n) - (1-(xmin/b)**(alpha-1))) for i,b in zip(xrange(n),z)] )
+        ks = max( [abs( i/float(n) - (1-(xmin/b)**(alpha-1))) for i,b in zip(range(n),z)] )
         # Parallels Eqn 3.5 in Clauset et al 2009, but zeta(alpha, xmin) = (alpha-1)/xmin.  Really is Eqn B3 in paper.
         #L = n*log((alpha-1)/xmin) - alpha*sum(log(z/xmin))
         sl = sum([math.log(a/xmin) for a in z])
@@ -264,8 +264,8 @@ def test_fitter(xmin=1.0, alpha=2.5, niter=500, npts=1000, invcdf=plexp_inv,
     """
     sz = niter
     xmarr,alphaf_v,ksv,nxarr = ([0]*sz,)*4
-    for i in xrange(niter):
-        randarr = [random.random() for k in xrange(npts)]
+    for i in range(niter):
+        randarr = [random.random() for k in range(npts)]
         fakedata = [invcdf(r,xmin,alpha) for r in randarr]
         TEST = plfit(fakedata,quiet=quiet,silent=silent,nosmall=True)
         alphaf_v[i] = TEST._alpha
