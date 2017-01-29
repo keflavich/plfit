@@ -969,7 +969,7 @@ def discrete_alpha_mle(data, xmin):
     if nn < 2:
         return 0
     xx = data[gexmin]
-    alpha = 1.0 + float(nn) * ( sum(log(xx/(xmin-0.5))) )**-1
+    alpha = 1.0 + float(nn) * (sum(log(xx/(float(xmin)-0.5))))**-1
     return alpha
 
 def discrete_best_alpha(data, alpharangemults=(0.9,1.1), n_alpha=201, approximate=True, verbose=True):
@@ -1018,11 +1018,12 @@ def discrete_ksD(data, xmin, alpha):
     """
     zz = np.sort(data[data>=xmin])
     nn = float(len(zz))
-    if nn < 2: return np.inf
+    if nn < 2:
+        return np.inf
     #cx = np.arange(nn,dtype='float')/float(nn)
     #cf = 1.0-(zz/xmin)**(1.0-alpha)
-    model_cdf = 1.0-(zz/xmin)**(1.0-alpha)
-    data_cdf  = np.searchsorted(zz,zz,side='left')/(float(nn))
+    model_cdf = 1.0-(zz.astype('float')/float(xmin))**(1.0-alpha)
+    data_cdf = np.searchsorted(zz,zz,side='left')/(float(nn))
 
     ks = max(abs(model_cdf-data_cdf))
     return ks
