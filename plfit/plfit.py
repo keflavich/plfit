@@ -518,19 +518,21 @@ class plfit(object):
 
     def plotpdf(self, x=None, xmin=None, alpha=None, nbins=50, dolog=True,
                 dnds=False, drawstyle='steps-post', histcolor='k', plcolor='r',
-                fill=False,
-                **kwargs):
+                fill=False, **kwargs):
         """
         Plots PDF and powerlaw.
 
         kwargs is passed to pylab.hist and pylab.plot
         """
-        if not(x): x=self.data
-        if not(xmin): xmin=self._xmin
-        if not(alpha): alpha=self._alpha
+        if x is None:
+            x=self.data
+        if xmin is None:
+            xmin=self._xmin
+        if alpha is None:
+            alpha=self._alpha
 
         x=np.sort(x)
-        n=len(x)
+        #n=len(x)
 
         pylab.gca().set_xscale('log')
         pylab.gca().set_yscale('log')
@@ -562,17 +564,19 @@ class plfit(object):
         # Normalize by the median ratio between the histogram and the power-law
         # The normalization is semi-arbitrary; an average is probably just as valid
         plotloc = (b>xmin)*(h>0)
-        norm = np.median( h[plotloc] / ((alpha-1)/xmin * (b[plotloc]/xmin)**(-alpha))  )
+        norm = np.median(h[plotloc] / ((alpha-1)/xmin *
+                                       (b[plotloc]/xmin)**(-alpha)))
         px = px*norm
 
         plotx = pylab.linspace(q.min(),q.max(),1000)
         ploty = (alpha-1)/xmin * (plotx/xmin)**(-alpha) * norm
 
         #pylab.loglog(q,px,'r',**kwargs)
-        pylab.plot(plotx,ploty,color=plcolor,**kwargs)
+        pylab.plot(plotx, ploty, color=plcolor, **kwargs)
 
         axlims = pylab.axis()
-        pylab.vlines(xmin,axlims[2],max(px),colors=plcolor,linestyle='dashed')
+        pylab.vlines(xmin, axlims[2], max(px), colors=plcolor,
+                     linestyle='dashed')
 
         if dolog and min(x) <= 0:
             lolim = 0.1
@@ -608,7 +612,7 @@ class plfit(object):
         pylab.xlabel("Real Value")
         pylab.ylabel("Power-Law Model Value")
 
-    def test_pl(self,niter=1e3, print_timing=False, **kwargs):
+    def test_pl(self, niter=1e3, print_timing=False, **kwargs):
         """
         Monte-Carlo test to determine whether distribution is consistent with a power law
 
@@ -627,6 +631,13 @@ class plfit(object):
 
         **WARNING** This can take a very long time to run!  Execution time scales as
         niter * setsize
+
+        Returns
+        -------
+        (p,ksv):
+        p is the p-value (probability) that the data are consistent with a power-law
+        ksv is an array of the KS-test values for each monte-carlo experiment
+
 
         """
         xmin = self._xmin
