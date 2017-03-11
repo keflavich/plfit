@@ -158,7 +158,8 @@ class plfit(object):
 
     def plfit(self, nosmall=True, finite=False, quiet=False, silent=False,
               usefortran=False, usecy=False, xmin=None, verbose=False,
-              discrete=None, discrete_approx=True, discrete_n_alpha=1000):
+              discrete=None, discrete_approx=True, discrete_n_alpha=1000,
+              skip_consistency_check=False):
         """
         A Python implementation of the Matlab code
         http://www.santafe.edu/~aaronc/powerlaws/plfit.m
@@ -177,36 +178,42 @@ class plfit(object):
         There is also a discrete version implemented in python - it is
         different from the continous version!
 
-        *discrete* [ bool | None ]
+        Parameters
+        ----------
+        discrete : bool or None
             If *discrete* is None, the code will try to determine whether the
             data set is discrete or continous based on the uniqueness of the
             data; if your data set is continuous but you have any non-unique
             data points (e.g., flagged "bad" data), the "automatic"
             determination will fail.  If *discrete* is True or False, the
             discrete or continuous fitter will be used, respectively.
-
-        *xmin* [ float / int ]
+        xmin : float or int
             If you specify xmin, the fitter will only determine alpha assuming
             the given xmin; the rest of the code (and most of the complexity)
             is determining an estimate for xmin and alpha.
-
-        *nosmall* [ bool (True) ]
+        nosmall : bool
             When on, the code rejects low s/n points.  WARNING: This option,
             which is on by default, may result in different answers than the
             original Matlab code and the "powerlaw" python package
-
-        *finite* [ bool (False) ]
-            There is a 'finite-size bias' to the estimator.  The "alpha" the code measures
-            is "alpha-hat" s.t. ᾶ = (nα-1)/(n-1), or α = (1 + ᾶ (n-1)) / n
-
-        *quiet* [ bool (False) ]
-            If False, delivers messages about what fitter is used and the fit results
-
-        *verbose* [ bool (False) ]
-            Deliver descriptive messages about the fit parameters (only if *quiet*==False)
-
-        *silent* [ bool (False) ]
+        finite : bool
+            There is a 'finite-size bias' to the estimator.  The "alpha" the
+            code measures is "alpha-hat" s.t. ᾶ = (nα-1)/(n-1), or α = (1 + ᾶ
+            (n-1)) / n
+        quiet : bool
+            If False, delivers messages about what fitter is used and the fit
+            results
+        verbose : bool
+            Deliver descriptive messages about the fit parameters (only if
+            `quiet==False`)
+        silent : bool
             If True, will print NO messages
+        skip_consistency_check : bool
+            The code will normally perform a consistency check to make sure the
+            alpha value computed by the fitter matches the alpha value computed
+            directly in python.  It is possible for numerical differences to
+            creep in, usually at the 10^-6 or less level.  If you see an
+            exception reporting this type of error, skipping the check can be
+            the appropriate next step.
 
         Returns
         -------
@@ -297,7 +304,7 @@ class plfit(object):
                 nmax = len(xmins)-1
 
             best_ks_index = argmin(kstest_values[:nmax])
-            xmin  = xmins[best_ks_index]
+            xmin = xmins[best_ks_index]
 
             self._alpha_values = alpha_values
             self._xmin_kstest = kstest_values
@@ -314,13 +321,20 @@ class plfit(object):
             alpha = 1. + float(n)/sum(log(z[z>=xmin]/xmin))
             try:
                 np.testing.assert_almost_equal(alpha, alpha_values[best_ks_index],
-                                               decimal=5)
+                                               decimal=4)
             except AssertionError:
                 raise AssertionError("The alpha value computed was not self-"
-                                     "consistent.  This should not happen.")
+                                     "consistent.  This should not happen.  "
+                                     "However, it is possible that this is "
+                                     "a numerical uncertainty issue; the "
+                                     "values being compared are {0} and {1}."
+                                     "If they are close enough, set "
+                                     "skip_consistency_check=True." 
+                                     .format(alpha,
+                                             alpha_values[best_ks_index]))
 
-        z     = z[z>=xmin]
-        n     = len(z)
+        z = z[z>=xmin]
+        n = len(z)
         alpha = 1. + float(n) / sum(log(z/xmin))
         if finite:
             alpha = alpha*(n-1.)/n+1./n
