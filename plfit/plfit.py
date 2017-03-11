@@ -518,7 +518,7 @@ class plfit(object):
 
     def plotpdf(self, x=None, xmin=None, alpha=None, nbins=50, dolog=True,
                 dnds=False, drawstyle='steps-post', histcolor='k', plcolor='r',
-                fill=False, **kwargs):
+                fill=False, dohist=True, **kwargs):
         """
         Plots PDF and powerlaw.
 
@@ -543,7 +543,8 @@ class plfit(object):
             b = hb[1]
             db = hb[1][1:]-hb[1][:-1]
             h = h/db
-            pylab.plot(b[:-1],h,drawstyle=drawstyle,color=histcolor,**kwargs)
+            if dohist:
+                pylab.plot(b[:-1],h,drawstyle=drawstyle,color=histcolor,**kwargs)
             #alpha -= 1
         elif dolog:
             hb = pylab.hist(x, bins=np.logspace(log10(min(x)), log10(max(x)),
@@ -551,10 +552,16 @@ class plfit(object):
                             edgecolor=histcolor, **kwargs)
             alpha -= 1
             h,b=hb[0],hb[1]
+            if not dohist:
+                for rect in hb[2]:
+                    rect.set_visible(False)
         else:
             hb = pylab.hist(x, bins=np.linspace((min(x)), (max(x)), nbins),
                             fill=fill, edgecolor=histcolor, **kwargs)
             h,b=hb[0],hb[1]
+            if not dohist:
+                for rect in hb[2]:
+                    rect.set_visible(False)
         # plotting points are at the center of each bin
         b = (b[1:]+b[:-1])/2.0
 
