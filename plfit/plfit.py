@@ -26,17 +26,16 @@ Example very simple use::
 """
 from __future__ import print_function
 
-import numpy
 import numpy as np
 import time
 import pylab
 try:
-    import fplfit
+    from . import fplfit
     fortranOK = True
 except:
     fortranOK = False
 try:
-    import cplfit
+    from . import cplfit
     cyOK = True
 except:
     cyOK = False
