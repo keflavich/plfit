@@ -320,8 +320,10 @@ class plfit(object):
             n = np.count_nonzero(z>=xmin)
             alpha = 1. + float(n)/sum(log(z[z>=xmin]/xmin))
             try:
-                np.testing.assert_almost_equal(alpha, alpha_values[best_ks_index],
-                                               decimal=4)
+                if not skip_consistency_check:
+                    np.testing.assert_almost_equal(alpha,
+                                                   alpha_values[best_ks_index],
+                                                   decimal=4)
             except AssertionError:
                 raise AssertionError("The alpha value computed was not self-"
                                      "consistent.  This should not happen.  "
@@ -329,7 +331,7 @@ class plfit(object):
                                      "a numerical uncertainty issue; the "
                                      "values being compared are {0} and {1}."
                                      "If they are close enough, set "
-                                     "skip_consistency_check=True." 
+                                     "skip_consistency_check=True."
                                      .format(alpha,
                                              alpha_values[best_ks_index]))
 
