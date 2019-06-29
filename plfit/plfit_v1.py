@@ -72,7 +72,7 @@ def plfit(x,nosmall=False,finite=False):
     if finite:
         alpha = alpha*(n-1)/n+1/n
     if n < 50 and ~finite:
-        print '(PLFIT) Warning: finite-size bias may be present.'
+        print('(PLFIT) Warning: finite-size bias may be present.')
     L = n*log((alpha-1)/xmin) - alpha*sum(log(z/xmin));
     return xmin,alpha,L,dat
 
