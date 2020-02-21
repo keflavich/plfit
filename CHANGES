@@ -1,3 +1,4 @@
+v1.0.3 - just a fresh push to pypi, probably for 2.7->3.x
 v1.0.2 - bugfix for the "nosmall" case and documentation update
 v1.0.1 - bugfix to pypi only; just adds things to MANIFEST.in
 v1.0 - first release
